@@ -1,0 +1,12 @@
+{
+  "By.id: wrong-username" : {
+    "locatorType" : "name",
+    "locatorValue" : "username",
+    "confidence" : 100.0
+  },
+  "By.id: wrong-password" : {
+    "locatorType" : "name",
+    "locatorValue" : "password",
+    "confidence" : 100.0
+  }
+}
