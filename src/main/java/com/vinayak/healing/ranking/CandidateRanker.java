@@ -3,21 +3,28 @@ package com.vinayak.healing.ranking;
 import java.util.Comparator;
 import java.util.List;
 
-import com.vinayak.healing.engine.DynamicLocatorAnalyzer;
+import com.vinayak.healing.analysis.DynamicPatternAnalyzer;
+import com.vinayak.healing.analysis.LocatorQualityAnalyzer;
 import com.vinayak.healing.intent.ElementIntent;
 import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
 
 public class CandidateRanker {
 
-    private final DynamicLocatorAnalyzer dynamicAnalyzer =
-            new DynamicLocatorAnalyzer();
+    private final DynamicPatternAnalyzer dynamicAnalyzer =
+            new DynamicPatternAnalyzer();
+
+    private final LocatorQualityAnalyzer qualityAnalyzer =
+            new LocatorQualityAnalyzer();
 
     public List<LocatorCandidate> rank(
             FailureContext context,
             List<LocatorCandidate> candidates) {
 
-        if (context == null || candidates == null) {
+        if (context == null
+                || candidates == null
+                || candidates.isEmpty()) {
+
             return candidates;
         }
 
@@ -26,176 +33,42 @@ public class CandidateRanker {
 
         for (LocatorCandidate candidate : candidates) {
 
-            /*
-             * Always start from the original DOM score.
-             */
             double score =
                     candidate.getScore();
 
-            // =====================================
-            // TAG MATCH
-            // =====================================
+            score += calculateTagScore(
+                    context,
+                    candidate);
 
-            if (hasText(context.getExpectedTag())
-                    && hasText(candidate.getTagName())) {
+            score += calculateIntentScore(
+                    context,
+                    candidate);
 
-                if (context.getExpectedTag()
-                        .equalsIgnoreCase(
-                                candidate.getTagName())) {
+            score += calculateIdentityScore(
+                    context,
+                    candidate);
 
-                    score += 150;
+            score += calculateLocatorTypeScore(
+                    candidate);
 
-                } else {
+            score += calculateParentScore(
+                    candidate);
 
-                    score -= 200;
-                }
-            }
+            score += calculateUniquenessScore(
+                    candidate);
 
-            // =====================================
-            // INTENT MATCH
-            // =====================================
+            score += calculateSemanticSimilarityScore(
+                    failedLocator,
+                    candidate);
 
-            if (context.getExpectedIntent() != null
-                    && context.getExpectedIntent()
-                            != ElementIntent.UNKNOWN
-                    && candidate.getIntent() != null
-                    && candidate.getIntent()
-                            != ElementIntent.UNKNOWN) {
+            score += calculateDynamicScore(
+        context,
+        candidate);
 
-                if (context.getExpectedIntent()
-                        == candidate.getIntent()) {
-
-                    score += 120;
-
-                } else {
-
-                    score -= 250;
-                }
-            }
-
-            // =====================================
-            // VARIABLE IDENTITY
-            // =====================================
-
-            double identityScore =
-                    calculateIdentityScore(
-                            context,
-                            candidate);
-
-            score += identityScore;
-
-            // =====================================
-            // PARENT CONTEXT
-            // =====================================
-
-            if ("form".equalsIgnoreCase(
-                    candidate.getParentTag())) {
-
-                score += 20;
-            }
-
-            if ("table".equalsIgnoreCase(
-                    candidate.getParentTag())) {
-
-                score += 15;
-            }
-
-            // =====================================
-            // LOCATOR STABILITY
-            // =====================================
-
-            String locatorType =
-                    candidate.getLocatorType();
-
-            if ("id".equalsIgnoreCase(locatorType)) {
-
-                score += 40;
-
-            } else if ("name".equalsIgnoreCase(
-                    locatorType)) {
-
-                score += 30;
-
-            } else if (locatorType != null
-                    && locatorType.toLowerCase()
-                            .startsWith("data")) {
-
-                score += 35;
-            }
-
-            // =====================================
-// LOCATOR UNIQUENESS
-// =====================================
-
-double uniquenessScore = 0;
-
-if (candidate.getOccurrenceCount() == 1) {
-
-    uniquenessScore = 100;
-
-} else if (candidate.getOccurrenceCount() > 1) {
-
-    /*
-     * Duplicate locators are weaker,
-     * but do not reject them here.
-     *
-     * A later scoped locator may still
-     * uniquely identify the same element.
-     */
-    uniquenessScore = -100;
-}
-
-score += uniquenessScore;
-
-            // =====================================
-            // FAILED LOCATOR SIMILARITY
-            // =====================================
-
-double similarityScore = 0;
-
-String failedSemanticValue =
-        extractSemanticValue(
-                failedLocator);
-
-String candidateSemanticValue =
-        extractSemanticValue(
-                candidate.getLocatorValue());
-
-if (hasText(failedSemanticValue)
-        && hasText(candidateSemanticValue)) {
-
-    double similarity =
-            calculateSimilarity(
-                    normalize(failedSemanticValue),
-                    normalize(candidateSemanticValue));
-
-    /*
-     * Strong semantic similarity receives a ranking boost.
-     *
-     * Example:
-     * My Inffo -> My Info
-     */
-    if (similarity >= 0.85) {
-
-        similarityScore = 350;
-
-    } else if (similarity >= 0.70) {
-
-        similarityScore = 220;
-
-    } else if (similarity >= 0.50) {
-
-        similarityScore = 100;
-    }
-
-    score += similarityScore;
-}
-
-
+            score += calculateQualityScore(
+                    candidate);
 
             candidate.setFinalScore(score);
-
-        
         }
 
         candidates.sort(
@@ -203,75 +76,210 @@ if (hasText(failedSemanticValue)
                         LocatorCandidate::getFinalScore)
                         .reversed());
 
-       System.out.println(
-        "\n===== CANDIDATE RANKING =====");
-
-System.out.println(
-        "Total Candidates : "
-                + candidates.size());
-
-int limit =
-        Math.min(
-                10,
-                candidates.size());
-
-System.out.println(
-        "Showing Top "
-                + limit
-                + " Candidates");
-
-for (int i = 0; i < limit; i++) {
-
-    LocatorCandidate candidate =
-            candidates.get(i);
-
-    System.out.println(
-            (i + 1)
-                    + ". "
-                    + candidate.getLocatorType()
-                    + "="
-                    + candidate.getLocatorValue()
-                    + " | Score="
-                    + candidate.getFinalScore()
-                    + " | Matches="
-                    + candidate.getOccurrenceCount()
-                    + " | Unique="
-                    + candidate.isUniqueLocator());
-}
+        printRanking(candidates);
 
         return candidates;
     }
-
-    /*
-     * Uses the Page Object variable name as semantic identity.
-     *
-     * Example:
-     *
-     * continueButton -> continue
-     * usernameSearch -> username
-     * errorMessage   -> error
-     * postButton     -> post
-     */
-private double calculateIdentityScore(
+    private double calculateTagScore(
         FailureContext context,
         LocatorCandidate candidate) {
 
-    if (!hasText(context.getVariableName())
-            || candidate == null) {
+    if (!hasText(context.getExpectedTag())
+            || !hasText(candidate.getTagName())) {
 
         return 0;
     }
 
-    String variable =
+    return context.getExpectedTag()
+            .equalsIgnoreCase(candidate.getTagName())
+            ? 150
+            : -200;
+}
+
+private double calculateIntentScore(
+        FailureContext context,
+        LocatorCandidate candidate) {
+
+    if (context.getExpectedIntent() == null
+            || candidate.getIntent() == null
+            || context.getExpectedIntent() == ElementIntent.UNKNOWN
+            || candidate.getIntent() == ElementIntent.UNKNOWN) {
+
+        return 0;
+    }
+
+    return context.getExpectedIntent()
+            == candidate.getIntent()
+            ? 120
+            : -250;
+}
+
+private double calculateLocatorTypeScore(
+        LocatorCandidate candidate) {
+
+    String locatorType =
+            candidate.getLocatorType();
+
+    if (!hasText(locatorType)) {
+        return 0;
+    }
+
+    locatorType =
+            locatorType.toLowerCase();
+
+    switch (locatorType) {
+
+        case "id":
+            return 50;
+
+        case "name":
+            return 40;
+
+        case "data-test":
+        case "data-testid":
+        case "data-qa":
+        case "data-cy":
+            return 45;
+
+        case "aria-label":
+            return 35;
+
+        case "placeholder":
+            return 30;
+
+        case "text":
+            return 25;
+
+        case "xpath":
+            return 15;
+
+        case "css":
+        case "cssselector":
+            return 10;
+
+        default:
+            return 0;
+    }
+}
+
+private double calculateParentScore(
+        LocatorCandidate candidate) {
+
+    if (!hasText(candidate.getParentTag())) {
+        return 0;
+    }
+
+    switch (candidate.getParentTag().toLowerCase()) {
+
+        case "form":
+            return 20;
+
+        case "table":
+            return 15;
+
+        case "dialog":
+            return 15;
+
+        case "nav":
+            return 10;
+
+        default:
+            return 0;
+    }
+}
+private double calculateUniquenessScore(
+        LocatorCandidate candidate) {
+
+    if (candidate.getOccurrenceCount() <= 0) {
+        return 0;
+    }
+
+    if (candidate.getOccurrenceCount() == 1) {
+        return 100;
+    }
+
+    if (candidate.isUniqueLocator()) {
+        return 80;
+    }
+
+    return -100;
+}
+
+private double calculateSemanticSimilarityScore(
+        String failedLocator,
+        LocatorCandidate candidate) {
+
+    String failedSemantic =
+            extractSemanticValue(failedLocator);
+
+    String candidateSemantic =
+            extractSemanticValue(
+                    candidate.getLocatorValue());
+
+    if (!hasText(failedSemantic)
+            || !hasText(candidateSemantic)) {
+
+        return 0;
+    }
+
+    double similarity =
+            calculateSimilarity(
+                    normalize(failedSemantic),
+                    normalize(candidateSemantic));
+
+    if (similarity >= 0.90) {
+        return 350;
+    }
+
+    if (similarity >= 0.75) {
+        return 250;
+    }
+
+    if (similarity >= 0.60) {
+        return 150;
+    }
+
+    if (similarity >= 0.40) {
+        return 75;
+    }
+
+    return 0;
+}
+
+private double calculateIdentityScore(
+        FailureContext context,
+        LocatorCandidate candidate) {
+
+    if (context == null
+            || candidate == null) {
+        return 0;
+    }
+
+String variable;
+
+String failedSemantic =
+        extractSemanticValue(
+                context.getFailedLocator());
+
+if (hasText(failedSemantic)) {
+
+    variable =
+            normalize(
+                    failedSemantic);
+
+} else {
+
+    variable =
             normalize(
                     context.getVariableName());
+}
 
     String locatorValue =
             normalize(
                     extractSemanticValue(
                             candidate.getLocatorValue()));
 
-    String nearestLabel =
+    String label =
             normalize(
                     candidate.getNearestLabel());
 
@@ -283,192 +291,237 @@ private double calculateIdentityScore(
     double labelCoverage =
             tokenCoverage(
                     variable,
-                    nearestLabel);
+                    label);
 
     String locatorType =
             candidate.getLocatorType() == null
                     ? ""
                     : candidate.getLocatorType()
-                            .trim()
                             .toLowerCase();
-
-    // ==========================================
-    // STRONG SEMANTIC LOCATOR TYPES
-    // ==========================================
 
     if (isStrongIdentityLocator(locatorType)) {
 
-        if (locatorCoverage >= 1.0) {
+        if (locatorCoverage >= 1.0)
             return 500;
-        }
 
-        if (locatorCoverage >= 0.75) {
+        if (locatorCoverage >= 0.75)
             return 350;
-        }
 
-        if (locatorCoverage >= 0.50) {
+        if (locatorCoverage >= 0.50)
             return 200;
-        }
     }
 
-    // ==========================================
-    // TEXT / XPATH SEMANTIC IDENTITY
-    // ==========================================
+    if ("text".equals(locatorType)
+            || "xpath".equals(locatorType)) {
 
-    if (locatorType.equals("text")
-            || locatorType.equals("xpath")) {
-
-        if (locatorCoverage >= 1.0) {
+        if (locatorCoverage >= 1.0)
             return 400;
-        }
 
-        if (locatorCoverage >= 0.75) {
+        if (locatorCoverage >= 0.75)
             return 300;
-        }
 
-        if (locatorCoverage >= 0.50) {
+        if (locatorCoverage >= 0.50)
             return 150;
-        }
     }
 
-    // ==========================================
-    // CLASS / CSS
-    // ==========================================
-    //
-    // Shared technical classes are weak identity.
-    // They must never receive the same +500 bonus
-    // as ID, name, text, label, etc.
-    // ==========================================
+    if ("class".equals(locatorType)
+            || "css".equals(locatorType)
+            || "cssselector".equals(locatorType)) {
 
-    if (locatorType.equals("class")
-            || locatorType.equals("css")
-            || locatorType.equals("cssselector")) {
-
-        if (locatorCoverage >= 1.0) {
+        if (locatorCoverage >= 1.0)
             return 75;
-        }
 
-        if (locatorCoverage >= 0.50) {
+        if (locatorCoverage >= 0.50)
             return 30;
-        }
     }
 
-    // ==========================================
-    // NEAREST LABEL
-    // ==========================================
-
-    if (labelCoverage >= 1.0) {
+    if (labelCoverage >= 1.0)
         return 300;
-    }
 
-    if (labelCoverage >= 0.50) {
+    if (labelCoverage >= 0.50)
         return 150;
-    }
 
     return 0;
 }
+private double calculateDynamicScore(
+        FailureContext context,
+        LocatorCandidate candidate) {
 
-    private double tokenCoverage(
-            String variable,
-            String candidateValue) {
+    return dynamicAnalyzer.calculateDynamicScore(
+            context,
+            candidate);
+}
 
-        if (!hasText(variable)
-                || !hasText(candidateValue)) {
+private double calculateQualityScore(
+        LocatorCandidate candidate) {
 
-            return 0;
-        }
+    return qualityAnalyzer.calculateScore(
+            candidate);
+}
 
-        String[] tokens =
-                variable.split("\\s+");
+private void printRanking(
+        List<LocatorCandidate> candidates) {
 
-        int meaningfulTokens = 0;
-        int matchedTokens = 0;
+    System.out.println(
+            "\n========== Candidate Ranking ==========");
 
-        for (String token : tokens) {
+    int limit =
+            Math.min(
+                    candidates.size(),
+                    10);
 
-            /*
-             * Ignore generic Page Object suffixes.
-             *
-             * They describe the element type,
-             * not its business identity.
-             */
-            if (isGenericToken(token)) {
-                continue;
-            }
+    for (int i = 0; i < limit; i++) {
 
-            if (token.length() < 3) {
-                continue;
-            }
+        LocatorCandidate candidate =
+                candidates.get(i);
 
-            meaningfulTokens++;
+        System.out.println(
+                (i + 1)
+                        + ". "
+                        + candidate.getLocatorType()
+                        + "="
+                        + candidate.getLocatorValue());
 
-            if (candidateValue.contains(token)) {
-                matchedTokens++;
-            }
-        }
+        System.out.println(
+                "   Score      : "
+                        + candidate.getFinalScore());
 
-        if (meaningfulTokens == 0) {
-            return 0;
-        }
+        System.out.println(
+                "   Intent     : "
+                        + candidate.getIntent());
 
-        return (double) matchedTokens
-                / meaningfulTokens;
+        System.out.println(
+                "   Tag        : "
+                        + candidate.getTagName());
+
+        System.out.println(
+                "   Unique     : "
+                        + candidate.isUniqueLocator());
+
+        System.out.println(
+                "   Occurrence : "
+                        + candidate.getOccurrenceCount());
+
+        System.out.println();
+    }
+}
+private boolean hasText(
+        String value) {
+
+    return value != null
+            && !value.isBlank();
+}
+
+private String normalize(
+        String value) {
+
+    if (value == null) {
+        return "";
     }
 
-    private boolean isGenericToken(
-            String token) {
+    return value
+            .replaceAll("([a-z])([A-Z])", "$1 $2")
+            .replaceAll("[^a-zA-Z0-9]+", " ")
+            .replaceAll("\\s+", " ")
+            .trim()
+            .toLowerCase();
+}
 
-        return token.equals("button")
-                || token.equals("input")
-                || token.equals("field")
-                || token.equals("link")
-                || token.equals("text")
-                || token.equals("label")
-                || token.equals("message")
-                || token.equals("element")
-                || token.equals("locator");
+private boolean isGenericToken(
+        String token) {
+
+    if (!hasText(token)) {
+        return true;
     }
 
-    private String normalize(
-            String value) {
+    switch (token.toLowerCase()) {
 
-        if (value == null) {
-            return "";
+        case "button":
+        case "btn":
+        case "input":
+        case "field":
+        case "text":
+        case "textbox":
+        case "label":
+        case "message":
+        case "link":
+        case "icon":
+        case "image":
+        case "img":
+        case "element":
+        case "locator":
+        case "page":
+        case "menu":
+            return true;
+
+        default:
+            return false;
+    }
+}
+
+private double tokenCoverage(
+        String source,
+        String target) {
+
+    if (!hasText(source)
+            || !hasText(target)) {
+
+        return 0;
+    }
+
+    String[] tokens =
+            source.split("\\s+");
+
+    int meaningful = 0;
+    int matched = 0;
+
+    for (String token : tokens) {
+
+        if (isGenericToken(token)) {
+            continue;
         }
 
-        return value
-                .replaceAll(
-                        "([a-z])([A-Z])",
-                        "$1 $2")
-                .replaceAll(
-                        "[^a-zA-Z0-9]+",
-                        " ")
-                .replaceAll(
-                        "\\s+",
-                        " ")
-                .trim()
-                .toLowerCase();
+        if (token.length() < 2) {
+            continue;
+        }
+
+        meaningful++;
+
+        if (target.contains(token)) {
+            matched++;
+        }
     }
 
-    private boolean hasText(
-            String value) {
-
-        return value != null
-                && !value.isBlank();
+    if (meaningful == 0) {
+        return 0;
     }
-    private boolean isDynamicLocator(
-        String locator) {
 
-    if (!hasText(locator)) {
+    return (double) matched / meaningful;
+}
+
+private boolean isStrongIdentityLocator(
+        String locatorType) {
+
+    if (!hasText(locatorType)) {
         return false;
     }
 
-    String value =
-            locator.toLowerCase();
+    switch (locatorType.toLowerCase()) {
 
-    return value.contains("-")
-            || value.contains("_")
-            || value.matches(".*\\d+.*");
+        case "id":
+        case "name":
+        case "placeholder":
+        case "aria-label":
+        case "data-test":
+        case "data-testid":
+        case "data-qa":
+        case "data-cy":
+        case "href":
+            return true;
+
+        default:
+            return false;
+    }
 }
 private String extractSemanticValue(
         String value) {
@@ -477,79 +530,44 @@ private String extractSemanticValue(
         return "";
     }
 
-    String cleaned = value.trim();
+    String cleaned =
+            value.trim();
 
-    /*
-     * Remove Selenium's By.xxx prefix.
-     *
-     * Example:
-     * By.xpath: //span[text()='My Inffo']
-     */
     cleaned =
             cleaned.replaceFirst(
                     "(?i)^By\\.[a-zA-Z]+\\s*:\\s*",
                     "");
 
-    /*
-     * XPath quoted values.
-     *
-     * Handles:
-     * text()='My Info'
-     * contains(text(), 'My Info')
-     * normalize-space()='My Info'
-     * @id='username'
-     * @name='username'
-     */
-    java.util.regex.Matcher quotedMatcher =
+    java.util.regex.Matcher quoted =
             java.util.regex.Pattern
-                    .compile(
-                            "['\"]([^'\"]+)['\"]")
+                    .compile("['\"]([^'\"]+)['\"]")
                     .matcher(cleaned);
 
-    String bestQuotedValue = "";
+    String best = "";
 
-    while (quotedMatcher.find()) {
+    while (quoted.find()) {
 
         String extracted =
-                quotedMatcher.group(1);
+                quoted.group(1);
 
-        /*
-         * Prefer meaningful human-readable values.
-         */
-        if (extracted != null
-                && extracted.length()
-                > bestQuotedValue.length()) {
-
-            bestQuotedValue = extracted;
+        if (extracted.length() > best.length()) {
+            best = extracted;
         }
     }
 
-    if (hasText(bestQuotedValue)) {
-        return bestQuotedValue;
+    if (hasText(best)) {
+        return best;
     }
 
-    /*
-     * CSS attribute selector.
-     *
-     * Example:
-     * [placeholder='Search']
-     */
-    java.util.regex.Matcher cssMatcher =
+    java.util.regex.Matcher css =
             java.util.regex.Pattern
-                    .compile(
-                            "\\[[^=]+=['\"]?([^'\"\\]]+)['\"]?\\]")
+                    .compile("\\[[^=]+=['\"]?([^'\"\\]]+)['\"]?\\]")
                     .matcher(cleaned);
 
-    if (cssMatcher.find()) {
-        return cssMatcher.group(1);
+    if (css.find()) {
+        return css.group(1);
     }
 
-    /*
-     * Simple locator values such as:
-     * My Info
-     * username
-     * employee_name
-     */
     return cleaned;
 }
 
@@ -563,58 +581,58 @@ private double calculateSimilarity(
         return 0;
     }
 
-    if (first.equals(second)) {
-        return 1.0;
-    }
+if (first.equals(second)) {
+    return 1.0;
+}
+
+if (first.contains(second)
+        || second.contains(first)) {
+
+    return 1.0;
+}
+
+if (first.startsWith(second)
+        || second.startsWith(first)) {
+
+    return 1.0;
+}
 
     int distance =
             levenshteinDistance(
                     first,
                     second);
 
-    int maxLength =
+    int max =
             Math.max(
                     first.length(),
                     second.length());
 
-    if (maxLength == 0) {
+    if (max == 0) {
         return 1.0;
     }
 
     return 1.0
-            - ((double) distance
-            / maxLength);
+            - ((double) distance / max);
 }
-
 private int levenshteinDistance(
         String first,
         String second) {
 
     int[][] dp =
             new int[first.length() + 1]
-                    [second.length() + 1];
+                   [second.length() + 1];
 
-    for (int i = 0;
-            i <= first.length();
-            i++) {
-
+    for (int i = 0; i <= first.length(); i++) {
         dp[i][0] = i;
     }
 
-    for (int j = 0;
-            j <= second.length();
-            j++) {
-
+    for (int j = 0; j <= second.length(); j++) {
         dp[0][j] = j;
     }
 
-    for (int i = 1;
-            i <= first.length();
-            i++) {
+    for (int i = 1; i <= first.length(); i++) {
 
-        for (int j = 1;
-                j <= second.length();
-                j++) {
+        for (int j = 1; j <= second.length(); j++) {
 
             int cost =
                     first.charAt(i - 1)
@@ -627,29 +645,9 @@ private int levenshteinDistance(
                             Math.min(
                                     dp[i - 1][j] + 1,
                                     dp[i][j - 1] + 1),
-                            dp[i - 1][j - 1]
-                                    + cost);
+                            dp[i - 1][j - 1] + cost);
         }
     }
 
-    return dp[first.length()]
-            [second.length()];
-}
-private boolean isStrongIdentityLocator(
-        String locatorType) {
-
-    if (!hasText(locatorType)) {
-        return false;
-    }
-
-    return locatorType.equals("id")
-            || locatorType.equals("name")
-            || locatorType.equals("placeholder")
-            || locatorType.equals("aria-label")
-            || locatorType.equals("data-test")
-            || locatorType.equals("data-testid")
-            || locatorType.equals("data-qa")
-            || locatorType.equals("data-cy")
-            || locatorType.equals("href");
-}
-}
+    return dp[first.length()][second.length()];
+}}

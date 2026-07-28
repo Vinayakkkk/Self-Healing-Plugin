@@ -71,7 +71,7 @@ HealingLogger.debug(
 
     public String findVariableName(
             String filePath,
-            String locatorValue) {
+          String locatorValue) {
 
         try {
 
@@ -133,6 +133,84 @@ HealingLogger.debug(
             return "";
         }
     }
+
+   public String findSourceFile(String projectRoot,
+                             String variableName) {
+
+    try {
+
+        if (projectRoot == null || projectRoot.isBlank()) {
+            return "";
+        }
+
+        File root = new File(projectRoot);
+
+        if (!root.exists()) {
+            return "";
+        }
+
+       
+
+        return searchDirectory(root, variableName);
+
+    } catch (Exception e) {
+
+        HealingLogger.error(
+                "SOURCE FILE SEARCH FAILED",
+                e);
+
+        return "";
+    }
+}
+
+private String searchDirectory(File directory,
+                               String variableName) {
+
+    File[] files = directory.listFiles();
+
+    if (files == null) {
+        return "";
+    }
+
+    for (File file : files) {
+
+        if (file.isDirectory()) {
+
+          String result =
+        searchDirectory(
+                file,
+                variableName);
+
+            if (!result.isBlank()) {
+                return result;
+            }
+
+        } else if (file.getName().endsWith(".java")) {
+
+            try {
+
+                String source =
+                        Files.readString(
+                                file.toPath());
+
+               if (variableName != null
+        && !variableName.isBlank()
+        && source.contains(variableName)) {
+
+    HealingLogger.debug(
+            "SOURCE FILE FOUND = "
+                    + file.getAbsolutePath());
+
+    return file.getAbsolutePath();
+}
+
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    return "";
+}
     private String normalizeLocator(String value) {
 
     if (value == null) {

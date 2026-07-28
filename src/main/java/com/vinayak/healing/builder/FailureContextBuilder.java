@@ -37,11 +37,12 @@ public class FailureContextBuilder {
         context.setFailedLocator(
                 failedLocator);
 
-      String normalizedVariableName =
-        normalize(variableName);
+// Keep the original Java variable name for source repair
+context.setVariableName(variableName);
 
-context.setVariableName(
-        normalizedVariableName);
+// Use a normalized copy only for intent analysis
+String normalizedVariableName =
+        normalize(variableName);
 
 context.setLocatorDeclaration(
         locatorDeclaration);

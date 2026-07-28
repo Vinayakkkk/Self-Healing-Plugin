@@ -255,6 +255,40 @@ public class CollectionHealingEngine {
             return List.of();
         }
 
+        CollectionDecisionEngine decisionEngine =
+        new CollectionDecisionEngine();
+
+CollectionDecisionEngine.Result decision =
+        decisionEngine.decide(
+                bestMatch.candidate,
+                bestMatch.collectionScore,
+                bestMatch.elements.size(),
+                (int) bestMatch.elements.stream()
+                        .filter(this::isDisplayed)
+                        .count(),
+                true,
+                calculateScoreGap(candidates, bestMatch.candidate),
+                calculateSemanticSignals(
+                        context,
+                        bestMatch.candidate));
+
+System.out.println(
+        "COLLECTION DECISION = "
+                + decision.decision());
+
+System.out.println(
+        "CONFIDENCE = "
+                + decision.confidence());
+
+if (decision.decision()
+        == CollectionDecisionEngine.Decision.REJECT) {
+
+    System.out.println(
+            "Collection rejected by decision engine.");
+
+    return List.of();
+}
+
         // ==========================================
         // 5. RETURN BEST COLLECTION
         // ==========================================
@@ -564,5 +598,67 @@ public class CollectionHealingEngine {
     }
 
     return true;
+}
+private double calculateScoreGap(
+        List<LocatorCandidate> candidates,
+        LocatorCandidate best) {
+
+    if (best == null || candidates == null) {
+        return 0;
+    }
+
+    double secondBest = Double.NEGATIVE_INFINITY;
+
+    for (LocatorCandidate candidate : candidates) {
+
+        if (candidate == null || candidate == best) {
+            continue;
+        }
+
+        secondBest = Math.max(
+                secondBest,
+                candidate.getFinalScore());
+    }
+
+    if (secondBest == Double.NEGATIVE_INFINITY) {
+        return best.getFinalScore();
+    }
+
+    return best.getFinalScore() - secondBest;
+}
+
+private int calculateSemanticSignals(
+        FailureContext context,
+        LocatorCandidate candidate) {
+
+    int signals = 0;
+
+    String variable =
+            normalize(context.getVariableName());
+
+    String locator =
+            normalize(candidate.getLocatorValue());
+
+    if (!variable.isBlank()
+            && locator.contains(variable)) {
+
+        signals++;
+    }
+
+    if (candidate.getIntent()
+            == context.getExpectedIntent()) {
+
+        signals++;
+    }
+
+    if (context.getExpectedTag() != null
+            && context.getExpectedTag()
+                    .equalsIgnoreCase(
+                            candidate.getTagName())) {
+
+        signals++;
+    }
+
+    return signals;
 }
 }

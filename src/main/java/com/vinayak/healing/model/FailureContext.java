@@ -14,6 +14,7 @@ private ExecutionContext executionContext;
     private ElementIntent expectedIntent;
     private String variableName;
     private String expectedTag;
+    private String pageObjectPath;
     private String locatorTextHint;
     private String locatorDeclaration;
     private WebDriver driver;
@@ -46,6 +47,13 @@ public void setDriver(WebDriver driver) {
 }
 public String getLocatorTextHint() {
     return locatorTextHint;
+}
+public String getPageObjectPath() {
+    return pageObjectPath;
+}
+
+public void setPageObjectPath(String pageObjectPath) {
+    this.pageObjectPath = pageObjectPath;
 }
 
 public void setLocatorTextHint(

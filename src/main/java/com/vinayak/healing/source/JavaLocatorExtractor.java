@@ -169,13 +169,13 @@ public class JavaLocatorExtractor {
                         true);
             }
 
-        } catch (Exception e) {
+       } catch (Exception e) {
 
-            HealingLogger.error(
-                    "JavaParser lookup failed.");
+    HealingLogger.error(
+            "JavaParser lookup failed.", e);
 
-            
-        }
+    e.printStackTrace();
+}
 
         return null;
     }

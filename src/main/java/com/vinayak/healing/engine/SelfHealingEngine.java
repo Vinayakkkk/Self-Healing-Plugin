@@ -8,6 +8,7 @@ import com.vinayak.healing.decision.HealingDecisionEngine;
 import com.vinayak.healing.ai.LocatorSuggestion;
 import com.vinayak.healing.builder.FailureContextBuilder;
 import com.vinayak.healing.cache.LocatorCache;
+import com.vinayak.healing.repair.RepairReport;
 import com.vinayak.healing.validator.CachedLocatorValidator;
 import com.vinayak.healing.context.FallbackContextResolver;
 import com.vinayak.healing.dom.XPathFallbackGenerator;
@@ -17,6 +18,7 @@ import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
 import com.vinayak.healing.pipeline.HealingPipeline;
 import com.vinayak.healing.pipeline.PipelineResult;
+import com.vinayak.healing.repair.SourceCodeRepairEngine;
 import com.vinayak.healing.report.HealingReportManager;
 import com.vinayak.healing.source.SourceCodeAnalyzer;
 import com.vinayak.healing.validator.CandidateValidator;
@@ -39,11 +41,7 @@ public class SelfHealingEngine {
         collectionHealingEngine =
         new CollectionHealingEngine();
 
-//         private final SourceRepairPolicy sourceRepairPolicy =
-//         new SourceRepairPolicy();
 
-// private final LocatorHealingService locatorHealingService =
-//         new LocatorHealingService();
 
 private final FallbackContextResolver
         fallbackContextResolver =
@@ -58,6 +56,9 @@ private final FallbackContextResolver
 
                 private final CachedLocatorValidator cachedLocatorValidator =
         new CachedLocatorValidator();
+
+        private final SourceCodeRepairEngine sourceCodeRepairEngine =
+        new SourceCodeRepairEngine();
 
         private final CandidateValidator candidateValidator =
         new CandidateValidator();
@@ -140,6 +141,8 @@ FailureContext context =
                 failedLocator.toString(),
                 variableName,
                 declaration);
+
+                context.setPageObjectPath(pageObjectPath);
 
 // ==========================================
 // FALLBACK CONTEXT RESOLUTION
@@ -773,6 +776,33 @@ if (suggestion != null
     HealingLogger.debug(
             "DIRECT HEAL SUCCESS : " + locator);
 
+try {
+
+    RepairReport report =
+            sourceCodeRepairEngine.repair(
+                    context,
+                    suggestion);
+
+    if (report.isRepairSuccessful()) {
+
+        HealingLogger.info(
+                "Page Object repaired : "
+                        + report.getPageObjectFile());
+
+    } else {
+
+        HealingLogger.warn(
+                "Repair failed : "
+                        + report.getMessage());
+    }
+
+} catch (Exception e) {
+
+    HealingLogger.warn(
+            "Source repair skipped : "
+                    + e.getMessage());
+}
+
  return driver.findElement(locator);
 }
 
@@ -1209,6 +1239,34 @@ HealingAnalytics.addHealingTime(
 System.out.println(
         "Element healed successfully");
 
+
+try {
+
+    RepairReport report =
+            sourceCodeRepairEngine.repair(
+                    context,
+                    suggestion);
+
+    if (report.isRepairSuccessful()) {
+
+        HealingLogger.info(
+                "Page Object repaired : "
+                        + report.getPageObjectFile());
+
+    } else {
+
+        HealingLogger.warn(
+                "Source repair failed : "
+                        + report.getMessage());
+    }
+
+} catch (Exception e) {
+
+    HealingLogger.warn(
+            "Source repair skipped : "
+                    + e.getMessage());
+}
+
 return element;
         
     }
@@ -1481,34 +1539,7 @@ private LocatorSuggestion buildSuggestionFromBy(
 
     return suggestion;
 }
-// private void repairSourceIfAllowed(
-//         String pageObjectPath,
-//         String declaration,
-//         By healedLocator) {
 
-//     if (pageObjectPath == null
-//             || pageObjectPath.isBlank()) {
-
-//         System.out.println(
-//                 "SOURCE REPAIR SKIPPED : Page object not found");
-
-//         return;
-//     }
-
-//     if (declaration == null
-//             || declaration.isBlank()) {
-
-//         System.out.println(
-//                 "SOURCE REPAIR SKIPPED : Dynamic locator");
-
-//         return;
-//     }
-
-//     locatorHealingService.replaceLocator(
-//             pageObjectPath,
-//             declaration,
-//             healedLocator);
-// }
 public String resolveVariableName(
         By locator) {
 
@@ -1587,6 +1618,8 @@ public List<WebElement> healCollection(
                     failedLocator.toString(),
                     variableName,
                     declaration);
+
+                    context.setPageObjectPath(pageObjectPath);
 
                     if (variableName == null
         || variableName.isBlank()) {

@@ -5,6 +5,11 @@ public class LocatorCandidate {
     private String locatorType;
     private String locatorValue;
 private String nearestLabel = "";
+private String elementText = "";
+private String placeholder = "";
+private String id = "";
+private String name = "";
+private String ariaLabel = "";
     private String tagName;
     private String inputType;
     private ElementIntent intent;
@@ -111,6 +116,45 @@ public void setNearestLabel(String nearestLabel) {
     public String getLocatorType() {
         return locatorType;
     }
+    public String getElementText() {
+    return elementText;
+}
+
+public void setElementText(String elementText) {
+    this.elementText = elementText == null ? "" : elementText;
+}
+
+public String getPlaceholder() {
+    return placeholder;
+}
+
+public void setPlaceholder(String placeholder) {
+    this.placeholder = placeholder == null ? "" : placeholder;
+}
+
+public String getId() {
+    return id;
+}
+
+public void setId(String id) {
+    this.id = id == null ? "" : id;
+}
+
+public String getName() {
+    return name;
+}
+
+public void setName(String name) {
+    this.name = name == null ? "" : name;
+}
+
+public String getAriaLabel() {
+    return ariaLabel;
+}
+
+public void setAriaLabel(String ariaLabel) {
+    this.ariaLabel = ariaLabel == null ? "" : ariaLabel;
+}
 
     public String getLocatorValue() {
         return locatorValue;
