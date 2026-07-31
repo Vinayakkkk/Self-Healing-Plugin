@@ -17,69 +17,99 @@ The framework combines deterministic algorithms with AI-assisted healing to impr
 # ✨ Features
 
 - ✅ Runtime Self-Healing
-- ✅ HealingWebDriver Wrapper
-- ✅ DOM Candidate Discovery
+- ✅ Single Element Healing
+- ✅ Collection Healing
+- ✅ Duplicate Element Resolution
+- ✅ AI Assisted Locator Selection
+- ✅ Runtime Locator Cache
+- ✅ Persistent Locator Cache
 - ✅ Failure Context Generation
+- ✅ DOM Candidate Discovery
 - ✅ Candidate Ranking
 - ✅ Candidate Filtering
 - ✅ Candidate Validation
+- ✅ Expected Element Verification
 - ✅ Healing Decision Engine
-- ✅ AI Assisted Locator Selection
-- ✅ Runtime Locator Cache
-- ✅ Persistent Cache
 - ✅ XPath Fallback Generation
-- ✅ Collection Healing
-- ✅ Dynamic Locator Handling
-- ✅ Healing Analytics
-- ✅ JSON Healing Reports
+- ✅ Unique Locator Generation
+- ✅ Source Code Repair
 - ✅ Source Code Analysis
 - ✅ Variable Analysis
 - ✅ Locator Analysis
+- ✅ Dynamic Pattern Analysis
+- ✅ Shadow DOM Healing
+- ✅ iFrame Healing
+- ✅ Healing Analytics
+- ✅ JSON Healing Reports
 - ✅ Execution Context Tracking
 - ✅ Logging Framework
-
 ---
 
 # 🏗 Architecture
 
 ```
-                    Selenium Test
-                          │
-                          ▼
-                 HealingWebDriver
-                          │
-                          ▼
-                 SelfHealingEngine
-                          │
-          ┌───────────────┴────────────────┐
-          ▼                                ▼
-  FailureContext                    Locator Cache
-          │                                │
-          ▼                                ▼
-    Healing Pipeline               Cached Locator
-          │
-          ▼
-   DOM Candidate Finder
-          │
-          ▼
-   Candidate Ranking
-          │
-          ▼
-   Candidate Filtering
-          │
-          ▼
-   Candidate Validation
-          │
-          ▼
-  Healing Decision Engine
-          │
-    ┌─────┴──────┐
-    ▼            ▼
-Deterministic   AI Healing
- Healing
-          │
-          ▼
- Return Healed WebElement
+                              Selenium Test
+                                 │
+                                 ▼
+                        HealingWebDriver
+                                 │
+                                 ▼
+                        SelfHealingEngine
+                                 │
+                                 ▼
+                     FailureContextFactory
+                                 │
+                                 ▼
+                         FailureContext
+                                 │
+                     ┌───────────┴───────────┐
+                     ▼                       ▼
+             Runtime Locator Cache      Healing Pipeline
+                     │                       │
+         Cache Hit?──┘                       ▼
+                 │                  DOM Candidate Finder
+                 │                       │
+                 │                       ▼
+                 │              Candidate Ranking
+                 │                       │
+                 │                       ▼
+                 │             Candidate Filtering
+                 │                       │
+                 │                       ▼
+                 │          Expected Element Verification
+                 │                       │
+                 │                       ▼
+                 │             Candidate Validation
+                 │                       │
+                 │                       ▼
+                 │          Healing Decision Engine
+                 │              ┌────────┴─────────┐
+                 │              ▼                  ▼
+                 │      Deterministic Healing   AI Healing
+                 │              │                  │
+                 └──────────────┴──────────────────┘
+                                │
+                                ▼
+                     Unique Locator Generation
+                                │
+                                ▼
+                    Duplicate Element Resolution
+                                │
+                                ▼
+                    Browser Context Recovery
+                  (Shadow DOM / iFrame Healing)
+                                │
+                                ▼
+                     Locator Cache Update
+                                │
+                                ▼
+                    Source Code Repair (Optional)
+                                │
+                                ▼
+                      Healing Analytics & Report
+                                │
+                                ▼
+                     Return Healed WebElement
 ```
 
 ---
@@ -138,21 +168,15 @@ src
 
 # ⚙ Core Components
 
-| Component | Description |
-|------------|-------------|
-| HealingWebDriver | Wrapper around Selenium WebDriver |
-| SelfHealingEngine | Main healing engine |
-| FailureContextBuilder | Creates healing context |
-| DomCandidateFinder | Finds candidate elements |
-| CandidateRanker | Scores candidate locators |
-| CandidateFilter | Removes weak candidates |
-| CandidateValidator | Validates candidate elements |
-| HealingDecisionEngine | Determines whether healing is safe |
-| LocatorCache | Runtime & persistent cache |
-| HealingPipeline | Executes deterministic healing flow |
-| AiModelClient | Communicates with AI model |
-| HealingAnalytics | Collects healing statistics |
-| HealingReportManager | Generates JSON reports |
+| Component               | Description                                  |
+| ----------------------- | -------------------------------------------- |
+| UniqueLocatorGenerator  | Generates unique healing locators            |
+| DuplicateResolver       | Resolves duplicate candidate elements        |
+| ExpectedElementVerifier | Verifies healed element matches expectations |
+| ShadowDomHealingEngine  | Handles Shadow DOM traversal and healing     |
+| IframeHealingEngine     | Handles iFrame detection and recovery        |
+| PageObjectResolver      | Locates Page Object source files for repair  |
+
 
 ---
 
@@ -229,35 +253,56 @@ Example:
 
 # 📈 Current Capabilities
 
-| Feature | Status |
-|---------|:------:|
-| Runtime Healing | ✅ |
-| AI Healing | ✅ |
-| DOM Analysis | ✅ |
-| Candidate Ranking | ✅ |
-| Candidate Validation | ✅ |
-| Runtime Cache | ✅ |
-| Persistent Cache | ✅ |
-| Collection Healing | ✅ |
-| XPath Fallback | ✅ |
-| Healing Analytics | ✅ |
-| JSON Reports | ✅ |
-| Logging | ✅ |
+| Feature                   | Status |
+| ------------------------- | :----: |
+| Runtime Healing           |    ✅   |
+| AI Healing                |    ✅   |
+| Single Element Healing    |    ✅   |
+| Collection Healing        |    ✅   |
+| Duplicate Resolution      |    ✅   |
+| Shadow DOM Healing        |    ✅   |
+| iFrame Healing            |    ✅   |
+| DOM Analysis              |    ✅   |
+| Candidate Ranking         |    ✅   |
+| Candidate Validation      |    ✅   |
+| Runtime Cache             |    ✅   |
+| Persistent Cache          |    ✅   |
+| XPath Fallback            |    ✅   |
+| Unique Locator Generation |    ✅   |
+| Source Code Repair        |    ✅   |
+| Healing Analytics         |    ✅   |
+| JSON Reports              |    ✅   |
+
 
 ---
 
 # 🛣 Roadmap
 
-Planned improvements include:
 
-- DOM Fingerprinting
-- Visual Element Recognition
-- Dashboard for Healing Analytics
-- Browser Extension Support
-- Cloud Execution Support
-- Multi-AI Model Integration
+### ✅ Phase 1 (Completed)
+- Locator Healing Engine
+- Collection Healing
+- AI-Assisted Healing
+- Runtime & Persistent Cache
+- Source Code Repair
+- Shadow DOM Healing
+- iFrame Healing
+- Analytics & Reporting
+
+### 🚧 Phase 2 (In Progress)
+- Runtime Healing Engine
+  - StaleElementReferenceException Recovery
+  - ElementClickInterceptedException Recovery
+  - ElementNotInteractableException Recovery
+  - Smart Retry Engine
+
+### 🔮 Future Enhancements
+- Smart Synchronization Engine
+- AI Root Cause Analysis
+- Self-Learning Engine
+- Healing Dashboard
 - Performance Optimization
-- Enhanced Reporting
+- Multi-Browser Optimization
 
 ---
 
@@ -294,3 +339,7 @@ GitHub: https://github.com/Vinayakkkk
 If you find this project useful, consider giving it a ⭐ on GitHub.
 
 It helps others discover the project and motivates further development.
+
+## Current Version
+
+**v1.0-locator-healing**
