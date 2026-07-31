@@ -17,6 +17,17 @@ public class ValidatedElementLocatorOptimizer {
             return fallbackLocator;
         }
 
+        // Preserve already validated locator
+    if (fallbackLocator instanceof By.ById
+        || fallbackLocator instanceof By.ByName
+        || fallbackLocator instanceof By.ByClassName
+        || fallbackLocator.toString().contains("cssSelector")) {
+
+    if (isUnique(driver, fallbackLocator, element)) {
+        return fallbackLocator;
+    }
+}
+
         // First: optimize the validated element itself.
         By ownLocator =
                 findBestDirectLocator(
@@ -106,6 +117,18 @@ public class ValidatedElementLocatorOptimizer {
                 return locator;
             }
         }
+
+        String className = element.getAttribute("class");
+
+if (isUsable(className)
+        && !className.contains(" ")) {
+
+    locator = By.className(className);
+
+    if (isUnique(driver, locator, element)) {
+        return locator;
+    }
+}
 
         locator = uniqueAttribute(
                 driver,

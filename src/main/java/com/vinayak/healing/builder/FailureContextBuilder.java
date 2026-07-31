@@ -8,6 +8,7 @@ import com.vinayak.healing.intent.ElementIntent;
 import com.vinayak.healing.logging.HealingLogger;
 import com.vinayak.healing.model.FailureContext;
 
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -64,12 +65,8 @@ context.setExpectedTag(
  */
 context.setExpectedText("");
 
-String locatorTextHint =
-        extractExpectedText(
-                locatorDeclaration);
-
 context.setLocatorTextHint(
-        locatorTextHint);
+        extractExpectedText(locatorDeclaration));
 
 HealingLogger.debug(
         "LOCATOR TEXT HINT = "
@@ -115,7 +112,7 @@ HealingLogger.debug(
 
             try {
                 context.setPageSource(
-                        driver.getPageSource());
+        buildCombinedPageSource(driver));
             } catch (Exception ignored) {
             }
         }
@@ -508,6 +505,43 @@ private String extractExpectedText(
     }
 
     return "";
+}
+private String buildCombinedPageSource(WebDriver driver) {
+
+    StringBuilder html = new StringBuilder();
+
+    try {
+
+        driver.switchTo().defaultContent();
+
+        html.append(driver.getPageSource());
+
+        List<org.openqa.selenium.WebElement> iframes =
+                driver.findElements(
+                        org.openqa.selenium.By.tagName("iframe"));
+
+        for (int i = 0; i < iframes.size(); i++) {
+
+            try {
+
+                driver.switchTo().defaultContent();
+                driver.switchTo().frame(i);
+
+                html.append("\n<!-- IFRAME START -->\n");
+                html.append(driver.getPageSource());
+                html.append("\n<!-- IFRAME END -->\n");
+
+            } catch (Exception ignored) {
+
+            }
+        }
+
+    } finally {
+
+        driver.switchTo().defaultContent();
+    }
+
+    return html.toString();
 }
 
 }

@@ -1,0 +1,1915 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ------------------< com.vinayak:self-healing-plugin >-------------------
+[INFO] Building self-healing-plugin 1.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.2.0:clean (default-clean) @ self-healing-plugin ---
+[INFO] Deleting /Users/vinayak/Documents/Self-Healing-Plugin/target
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ self-healing-plugin ---
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ self-healing-plugin ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 108 source files with javac [debug target 21] to target/classes
+[INFO] /Users/vinayak/Documents/Self-Healing-Plugin/src/main/java/com/vinayak/healing/ai/AiElementChoiceFinder.java: Some input files use or override a deprecated API.
+[INFO] /Users/vinayak/Documents/Self-Healing-Plugin/src/main/java/com/vinayak/healing/ai/AiElementChoiceFinder.java: Recompile with -Xlint:deprecation for details.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ self-healing-plugin ---
+[INFO] Copying 5 resources from src/test/resources to target/test-classes
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ self-healing-plugin ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 1 source file with javac [debug target 21] to target/test-classes
+[INFO] /Users/vinayak/Documents/Self-Healing-Plugin/src/test/java/SelfHealingFrameworkValidationTest.java: /Users/vinayak/Documents/Self-Healing-Plugin/src/test/java/SelfHealingFrameworkValidationTest.java uses or overrides a deprecated API.
+[INFO] /Users/vinayak/Documents/Self-Healing-Plugin/src/test/java/SelfHealingFrameworkValidationTest.java: Recompile with -Xlint:deprecation for details.
+[INFO] 
+[INFO] --- surefire:3.5.4:test (default-test) @ self-healing-plugin ---
+[INFO] Using auto detected provider org.apache.maven.surefire.testng.TestNGProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running SelfHealingFrameworkValidationTest
+[HEALING INFO] SelfHealingFrameworkValidationTest initialized with real HealingWebDriver and HealingConfig.
+[HEALING INFO] Healing locator : By.className: login-input-field
+
+===== CONTEXT AFTER BUILD =====
+Variable : 
+Tag      : null
+Intent   : UNKNOWN
+Action   : null
+
+========== FALLBACK CONTEXT RESOLUTION ==========
+FAILED LOCATOR = By.className: login-input-field
+LOCATOR EVIDENCE = LocatorInfo{originalLocator='By.className: login-input-field', locatorType='class', attribute='class', attributeValue='login-input-field', tag='null', semanticText='null', attributes={class=login-input-field}, locatorTokens=[login, input, field], confidence=90.0}
+FALLBACK VARIABLE = login-input-field
+FALLBACK EXPECTED INTENT = INPUT
+==============================================
+
+===== CONTEXT AFTER FALLBACK =====
+Variable : login-input-field
+Tag      : null
+Intent   : INPUT
+Action   : null
+
+========== CACHE LOAD ==========
+Location : /Users/vinayak/.self-healing/healing-cache.json
+Cache file not found.
+
+===== DOM ELEMENTS =====
+Element Count = 99
+#root id= name= placeholder=
+html id= name= placeholder=
+head id= name= placeholder=
+meta id= name= placeholder=
+title id= name= placeholder=
+style id= name= placeholder=
+body id= name= placeholder=
+h1 id= name= placeholder=
+div id= name= placeholder=
+h2 id= name= placeholder=
+p id= name= placeholder=
+div id= name= placeholder=
+button id= name= placeholder=
+button id= name= placeholder=
+button id= name= placeholder=
+button id= name= placeholder=
+button id= name= placeholder=
+button id= name= placeholder=
+button id= name= placeholder=
+button id= name= placeholder=
+button id= name= placeholder=
+button id= name= placeholder=
+button id= name= placeholder=
+button id= name= placeholder=
+div id= name= placeholder=
+div id=login-card name= placeholder=
+h2 id= name= placeholder=
+div id= name= placeholder=
+label id= name= placeholder=
+input id=username-id name= placeholder=Enter ID Username
+div id= name= placeholder=
+label id= name= placeholder=
+input id=username-name name=user-name-input placeholder=Enter Name Username
+div id= name= placeholder=
+label id= name= placeholder=
+input id=username-class name= placeholder=Enter Class Username
+div id= name= placeholder=
+label id= name= placeholder=
+input id=username-css name= placeholder=Enter CSS Username
+div id= name= placeholder=
+label id= name= placeholder=
+input id=username-xpath name= placeholder=Enter XPath Username
+div id= name= placeholder=
+label id= name= placeholder=
+input id=username-datatest name= placeholder=Enter data-test Username
+div id= name= placeholder=
+label id= name= placeholder=
+input id=username-datatestid name= placeholder=Enter data-testid Username
+div id= name= placeholder=
+label id= name= placeholder=
+input id=username-aria name= placeholder=Enter Aria Username
+div id= name= placeholder=
+label id= name= placeholder=
+input id=username-placeholder name= placeholder=Unique Placeholder Target
+div id=parent-employee-container name= placeholder=
+h2 id= name= placeholder=
+div id= name= placeholder=
+label id= name= placeholder=
+input id=emp-title-field name= placeholder=Software Test Engineer
+div id= name= placeholder=
+p id= name= placeholder=
+button id=emp-submit-btn name= placeholder=
+div id=duplicate-card name= placeholder=
+h2 id= name= placeholder=
+div id= name= placeholder=
+input id= name= placeholder=
+div id= name= placeholder=
+input id= name= placeholder=
+div id= name= placeholder=
+input id= name= placeholder=
+div id= name= placeholder=
+h2 id= name= placeholder=
+button id= name= placeholder=
+div id=dynamic-host name= placeholder=
+div id= name= placeholder=
+h2 id= name= placeholder=
+ul id=item-collection name= placeholder=
+li id= name= placeholder=
+li id= name= placeholder=
+li id= name= placeholder=
+li id= name= placeholder=
+div id= name= placeholder=
+h2 id= name= placeholder=
+div id= name= placeholder=
+label id= name= placeholder=
+input id=hidden-element name= placeholder=
+div id= name= placeholder=
+label id= name= placeholder=
+input id=disabled-element name= placeholder=
+div id= name= placeholder=
+h2 id= name= placeholder=
+div id=shadow-host name= placeholder=
+div id= name= placeholder=
+h2 id= name= placeholder=
+iframe id=test-iframe name= placeholder=
+script id= name= placeholder=
+h3 id= name= placeholder=
+input id=iframe-input name= placeholder=Inside iFrame Target
+button id=iframe-btn name= placeholder=
+
+========== LABEL DEBUG ==========
+Locator      : id=username-id
+Variable     : login-input-field
+NearestLabel : Username (By ID):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, id]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=username-id tag=input
+
+========== LABEL DEBUG ==========
+Locator      : placeholder=Enter ID Username
+Variable     : login-input-field
+NearestLabel : Username (By ID):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, id]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> placeholder=Enter ID Username tag=input
+
+========== LABEL DEBUG ==========
+Locator      : id=username-name
+Variable     : login-input-field
+NearestLabel : Username (By Name):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, name]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=username-name tag=input
+
+========== LABEL DEBUG ==========
+Locator      : name=user-name-input
+Variable     : login-input-field
+NearestLabel : Username (By Name):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, name]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> name=user-name-input tag=input
+
+========== LABEL DEBUG ==========
+Locator      : placeholder=Enter Name Username
+Variable     : login-input-field
+NearestLabel : Username (By Name):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, name]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> placeholder=Enter Name Username tag=input
+
+========== LABEL DEBUG ==========
+Locator      : id=username-class
+Variable     : login-input-field
+NearestLabel : Username (By Class):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, class]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=username-class tag=input
+
+========== LABEL DEBUG ==========
+Locator      : placeholder=Enter Class Username
+Variable     : login-input-field
+NearestLabel : Username (By Class):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, class]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> placeholder=Enter Class Username tag=input
+
+========== LABEL DEBUG ==========
+Locator      : class=login-input-field-BROKEN
+Variable     : login-input-field
+NearestLabel : Username (By Class):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, class]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> class=login-input-field-BROKEN tag=input
+
+========== LABEL DEBUG ==========
+Locator      : id=username-css
+Variable     : login-input-field
+NearestLabel : Username (By CSS):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, css]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=username-css tag=input
+
+========== LABEL DEBUG ==========
+Locator      : placeholder=Enter CSS Username
+Variable     : login-input-field
+NearestLabel : Username (By CSS):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, css]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> placeholder=Enter CSS Username tag=input
+
+========== LABEL DEBUG ==========
+Locator      : class=css-target-node
+Variable     : login-input-field
+NearestLabel : Username (By CSS):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, css]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> class=css-target-node tag=input
+
+========== LABEL DEBUG ==========
+Locator      : id=username-xpath
+Variable     : login-input-field
+NearestLabel : Username (By XPath):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, xpath]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=username-xpath tag=input
+
+========== LABEL DEBUG ==========
+Locator      : placeholder=Enter XPath Username
+Variable     : login-input-field
+NearestLabel : Username (By XPath):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, xpath]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> placeholder=Enter XPath Username tag=input
+
+========== LABEL DEBUG ==========
+Locator      : id=username-datatest
+Variable     : login-input-field
+NearestLabel : Username (By data-test):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, data, test]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=username-datatest tag=input
+
+========== LABEL DEBUG ==========
+Locator      : placeholder=Enter data-test Username
+Variable     : login-input-field
+NearestLabel : Username (By data-test):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, data, test]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> placeholder=Enter data-test Username tag=input
+
+========== LABEL DEBUG ==========
+Locator      : data-test=login-datatest-field
+Variable     : login-input-field
+NearestLabel : Username (By data-test):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, data, test]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> data-test=login-datatest-field tag=input
+
+========== LABEL DEBUG ==========
+Locator      : id=username-datatestid
+Variable     : login-input-field
+NearestLabel : Username (By data-testid):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, data, testid]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=username-datatestid tag=input
+
+========== LABEL DEBUG ==========
+Locator      : placeholder=Enter data-testid Username
+Variable     : login-input-field
+NearestLabel : Username (By data-testid):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, data, testid]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> placeholder=Enter data-testid Username tag=input
+
+========== LABEL DEBUG ==========
+Locator      : data-testid=login-datatestid-field
+Variable     : login-input-field
+NearestLabel : Username (By data-testid):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, data, testid]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> data-testid=login-datatestid-field tag=input
+
+========== LABEL DEBUG ==========
+Locator      : id=username-aria
+Variable     : login-input-field
+NearestLabel : Username (By Aria-Label):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, aria, label]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=username-aria tag=input
+
+========== LABEL DEBUG ==========
+Locator      : placeholder=Enter Aria Username
+Variable     : login-input-field
+NearestLabel : Username (By Aria-Label):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, aria, label]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> placeholder=Enter Aria Username tag=input
+
+========== LABEL DEBUG ==========
+Locator      : aria-label=Aria Username Field
+Variable     : login-input-field
+NearestLabel : Username (By Aria-Label):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, aria, label]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> aria-label=Aria Username Field tag=input
+
+========== LABEL DEBUG ==========
+Locator      : id=username-placeholder
+Variable     : login-input-field
+NearestLabel : Username (By Placeholder):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, placeholder]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=username-placeholder tag=input
+
+========== LABEL DEBUG ==========
+Locator      : placeholder=Unique Placeholder Target
+Variable     : login-input-field
+NearestLabel : Username (By Placeholder):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, placeholder]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> placeholder=Unique Placeholder Target tag=input
+
+========== LABEL DEBUG ==========
+Locator      : id=emp-title-field
+Variable     : login-input-field
+NearestLabel : Employee Title (By Label Association):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [employee, title, by, label, association]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=emp-title-field tag=input
+
+========== LABEL DEBUG ==========
+Locator      : placeholder=Software Test Engineer
+Variable     : login-input-field
+NearestLabel : Employee Title (By Label Association):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [employee, title, by, label, association]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> placeholder=Software Test Engineer tag=input
+
+========== LABEL DEBUG ==========
+Locator      : class=emp-scoped-css
+Variable     : login-input-field
+NearestLabel : Employee Title (By Label Association):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [employee, title, by, label, association]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> class=emp-scoped-css tag=input
+
+========== LABEL DEBUG ==========
+Locator      : class=dup-field
+Variable     : login-input-field
+NearestLabel : Username (By ID):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, id]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> class=dup-field tag=input
+
+========== LABEL DEBUG ==========
+Locator      : class=dup-field
+Variable     : login-input-field
+NearestLabel : Username (By ID):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, id]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> class=dup-field tag=input
+
+========== LABEL DEBUG ==========
+Locator      : class=dup-field
+Variable     : login-input-field
+NearestLabel : Username (By ID):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, id]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> class=dup-field tag=input
+
+========== LABEL DEBUG ==========
+Locator      : id=hidden-element
+Variable     : login-input-field
+NearestLabel : Hidden Target:
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [hidden, target]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=hidden-element tag=input
+
+========== LABEL DEBUG ==========
+Locator      : id=disabled-element
+Variable     : login-input-field
+NearestLabel : Disabled Target:
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [disabled, target]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=disabled-element tag=input
+
+========== LABEL DEBUG ==========
+Locator      : id=iframe-input
+Variable     : login-input-field
+NearestLabel : Username (By ID):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, id]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=iframe-input tag=input
+
+========== LABEL DEBUG ==========
+Locator      : placeholder=Inside iFrame Target
+Variable     : login-input-field
+NearestLabel : Username (By ID):
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : [username, by, id]
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> placeholder=Inside iFrame Target tag=input
+
+===== RAW CANDIDATES =====
+Total : 46
+id=username-id tag=input intent=INPUT
+xpath=//label[normalize-space()='Username (By ID):']/ancestor::*[count(.//input)=1][1]//input tag=input intent=INPUT
+placeholder=Enter ID Username tag=input intent=INPUT
+id=username-name tag=input intent=INPUT
+xpath=//label[normalize-space()='Username (By Name):']/ancestor::*[count(.//input)=1][1]//input tag=input intent=INPUT
+name=user-name-input tag=input intent=INPUT
+placeholder=Enter Name Username tag=input intent=INPUT
+id=username-class tag=input intent=INPUT
+xpath=//label[normalize-space()='Username (By Class):']/ancestor::*[count(.//input)=1][1]//input tag=input intent=INPUT
+placeholder=Enter Class Username tag=input intent=INPUT
+class=login-input-field-BROKEN tag=input intent=INPUT
+id=username-css tag=input intent=INPUT
+xpath=//label[normalize-space()='Username (By CSS):']/ancestor::*[count(.//input)=1][1]//input tag=input intent=INPUT
+placeholder=Enter CSS Username tag=input intent=INPUT
+class=css-target-node tag=input intent=INPUT
+id=username-xpath tag=input intent=INPUT
+xpath=//label[normalize-space()='Username (By XPath):']/ancestor::*[count(.//input)=1][1]//input tag=input intent=INPUT
+placeholder=Enter XPath Username tag=input intent=INPUT
+id=username-datatest tag=input intent=INPUT
+xpath=//label[normalize-space()='Username (By data-test):']/ancestor::*[count(.//input)=1][1]//input tag=input intent=INPUT
+placeholder=Enter data-test Username tag=input intent=INPUT
+data-test=login-datatest-field tag=input intent=INPUT
+id=username-datatestid tag=input intent=INPUT
+xpath=//label[normalize-space()='Username (By data-testid):']/ancestor::*[count(.//input)=1][1]//input tag=input intent=INPUT
+placeholder=Enter data-testid Username tag=input intent=INPUT
+data-testid=login-datatestid-field tag=input intent=INPUT
+id=username-aria tag=input intent=INPUT
+xpath=//label[normalize-space()='Username (By Aria-Label):']/ancestor::*[count(.//input)=1][1]//input tag=input intent=INPUT
+placeholder=Enter Aria Username tag=input intent=INPUT
+aria-label=Aria Username Field tag=input intent=INPUT
+id=username-placeholder tag=input intent=INPUT
+xpath=//label[normalize-space()='Username (By Placeholder):']/ancestor::*[count(.//input)=1][1]//input tag=input intent=INPUT
+placeholder=Unique Placeholder Target tag=input intent=INPUT
+id=emp-title-field tag=input intent=INPUT
+xpath=//label[normalize-space()='Employee Title (By Label Association):']/ancestor::*[count(.//input)=1][1]//input tag=input intent=INPUT
+placeholder=Software Test Engineer tag=input intent=INPUT
+class=emp-scoped-css tag=input intent=INPUT
+class=dup-field tag=input intent=INPUT
+class=dup-field tag=input intent=INPUT
+class=dup-field tag=input intent=INPUT
+id=hidden-element tag=input intent=INPUT
+xpath=//label[normalize-space()='Hidden Target:']/ancestor::*[count(.//input)=1][1]//input tag=input intent=INPUT
+id=disabled-element tag=input intent=INPUT
+xpath=//label[normalize-space()='Disabled Target:']/ancestor::*[count(.//input)=1][1]//input tag=input intent=INPUT
+id=iframe-input tag=input intent=INPUT
+placeholder=Inside iFrame Target tag=input intent=INPUT
+
+===== UNIQUE LOCATOR GENERATOR =====
+Duplicate locator detected
+Type  : class
+Value : dup-field
+Tag   : input
+
+Matching Elements : 3
+
+Element 1
+Tag         : input
+Id          : 
+Name        : 
+Placeholder : 
+Class       : dup-field
+Text        : 
+
+Element 2
+Tag         : input
+Id          : 
+Name        : 
+Placeholder : 
+Class       : dup-field
+Text        : 
+
+Element 3
+Tag         : input
+Id          : 
+Name        : 
+Placeholder : 
+Class       : dup-field
+Text        : 
+
+===== SELECTED ELEMENT =====
+Tag         : input
+Id          : 
+Name        : 
+Placeholder : 
+Class       : dup-field
+Text        : 
+
+===== GENERATED UNIQUE LOCATOR =====
+css=#duplicate-card input[type='text']
+
+===== UNIQUE LOCATOR GENERATOR =====
+Duplicate locator detected
+Type  : class
+Value : dup-field
+Tag   : input
+
+Matching Elements : 3
+
+Element 1
+Tag         : input
+Id          : 
+Name        : 
+Placeholder : 
+Class       : dup-field
+Text        : 
+
+Element 2
+Tag         : input
+Id          : 
+Name        : 
+Placeholder : 
+Class       : dup-field
+Text        : 
+
+Element 3
+Tag         : input
+Id          : 
+Name        : 
+Placeholder : 
+Class       : dup-field
+Text        : 
+
+===== SELECTED ELEMENT =====
+Tag         : input
+Id          : 
+Name        : 
+Placeholder : 
+Class       : dup-field
+Text        : 
+
+===== GENERATED UNIQUE LOCATOR =====
+css=#duplicate-card input[type='text']
+
+===== UNIQUE LOCATOR GENERATOR =====
+Duplicate locator detected
+Type  : class
+Value : dup-field
+Tag   : input
+
+Matching Elements : 3
+
+Element 1
+Tag         : input
+Id          : 
+Name        : 
+Placeholder : 
+Class       : dup-field
+Text        : 
+
+Element 2
+Tag         : input
+Id          : 
+Name        : 
+Placeholder : 
+Class       : dup-field
+Text        : 
+
+Element 3
+Tag         : input
+Id          : 
+Name        : 
+Placeholder : 
+Class       : dup-field
+Text        : 
+
+===== SELECTED ELEMENT =====
+Tag         : input
+Id          : 
+Name        : 
+Placeholder : 
+Class       : dup-field
+Text        : 
+
+===== GENERATED UNIQUE LOCATOR =====
+css=#duplicate-card input[type='text']
+
+===== FINAL DOM CANDIDATES =====
+Total : 44
+class=login-input-field-BROKEN score=1035.4166666666667
+xpath=//label[normalize-space()='Username (By Class):']/ancestor::*[count(.//input)=1][1]//input score=1000.0
+xpath=//label[normalize-space()='Username (By data-test):']/ancestor::*[count(.//input)=1][1]//input score=1000.0
+xpath=//label[normalize-space()='Username (By data-testid):']/ancestor::*[count(.//input)=1][1]//input score=1000.0
+xpath=//label[normalize-space()='Username (By Aria-Label):']/ancestor::*[count(.//input)=1][1]//input score=1000.0
+data-test=login-datatest-field score=965.8333333333333
+data-testid=login-datatestid-field score=962.8787878787879
+xpath=//label[normalize-space()='Employee Title (By Label Association):']/ancestor::*[count(.//input)=1][1]//input score=887.2549019607843
+aria-label=Aria Username Field score=866.6666666666666
+xpath=//label[normalize-space()='Username (By ID):']/ancestor::*[count(.//input)=1][1]//input score=800.0
+xpath=//label[normalize-space()='Username (By Name):']/ancestor::*[count(.//input)=1][1]//input score=800.0
+id=username-class score=800.0
+placeholder=Enter Class Username score=800.0
+xpath=//label[normalize-space()='Username (By CSS):']/ancestor::*[count(.//input)=1][1]//input score=800.0
+xpath=//label[normalize-space()='Username (By XPath):']/ancestor::*[count(.//input)=1][1]//input score=800.0
+id=username-datatest score=800.0
+placeholder=Enter data-test Username score=800.0
+id=username-datatestid score=800.0
+placeholder=Enter data-testid Username score=800.0
+id=username-aria score=800.0
+placeholder=Enter Aria Username score=800.0
+xpath=//label[normalize-space()='Username (By Placeholder):']/ancestor::*[count(.//input)=1][1]//input score=800.0
+id=emp-title-field score=687.2549019607843
+name=user-name-input score=666.6666666666666
+id=username-id score=600.0
+placeholder=Enter ID Username score=600.0
+id=username-name score=600.0
+placeholder=Enter Name Username score=600.0
+id=username-css score=600.0
+placeholder=Enter CSS Username score=600.0
+class=css-target-node score=600.0
+id=username-xpath score=600.0
+placeholder=Enter XPath Username score=600.0
+id=username-placeholder score=600.0
+placeholder=Unique Placeholder Target score=600.0
+placeholder=Software Test Engineer score=600.0
+class=emp-scoped-css score=600.0
+xpath=//label[normalize-space()='Hidden Target:']/ancestor::*[count(.//input)=1][1]//input score=600.0
+xpath=//label[normalize-space()='Disabled Target:']/ancestor::*[count(.//input)=1][1]//input score=600.0
+id=iframe-input score=466.66666666666663
+id=hidden-element score=400.0
+id=disabled-element score=400.0
+placeholder=Inside iFrame Target score=400.0
+css=#duplicate-card input[type='text'] score=87.25490196078431
+
+===== CANDIDATE SUMMARY =====
+Candidates Found : 44
+
+===== SCORE BREAKDOWN =====
+class=login-input-field-BROKEN
+Base Score      : 1035.4166666666667
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 450.0
+Locator Type   : 250.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 350.0
+Dynamic        : 0.0
+Quality        : -100.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+xpath=//label[normalize-space()='Username (By Class):']/ancestor::*[count(.//input)=1][1]//input
+Base Score      : 1000.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 15.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 120.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+xpath=//label[normalize-space()='Username (By data-test):']/ancestor::*[count(.//input)=1][1]//input
+Base Score      : 1000.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 15.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 120.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+xpath=//label[normalize-space()='Username (By data-testid):']/ancestor::*[count(.//input)=1][1]//input
+Base Score      : 1000.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 15.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 120.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+xpath=//label[normalize-space()='Username (By Aria-Label):']/ancestor::*[count(.//input)=1][1]//input
+Base Score      : 1000.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 15.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 120.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+data-test=login-datatest-field
+Base Score      : 965.8333333333333
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 500.0
+Locator Type   : 45.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 150.0
+Dynamic        : 0.0
+Quality        : 480.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+data-testid=login-datatestid-field
+Base Score      : 962.8787878787879
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 500.0
+Locator Type   : 45.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 75.0
+Dynamic        : 0.0
+Quality        : 500.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+xpath=//label[normalize-space()='Employee Title (By Label Association):']/ancestor::*[count(.//input)=1][1]//input
+Base Score      : 887.2549019607843
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 15.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 120.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+aria-label=Aria Username Field
+Base Score      : 866.6666666666666
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 35.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 75.0
+Dynamic        : 0.0
+Quality        : 300.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+xpath=//label[normalize-space()='Username (By ID):']/ancestor::*[count(.//input)=1][1]//input
+Base Score      : 800.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 15.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 120.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+xpath=//label[normalize-space()='Username (By Name):']/ancestor::*[count(.//input)=1][1]//input
+Base Score      : 800.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 15.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 120.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+id=username-class
+Base Score      : 800.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 55.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 450.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+placeholder=Enter Class Username
+Base Score      : 800.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 30.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 150.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+xpath=//label[normalize-space()='Username (By CSS):']/ancestor::*[count(.//input)=1][1]//input
+Base Score      : 800.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 15.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 120.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+xpath=//label[normalize-space()='Username (By XPath):']/ancestor::*[count(.//input)=1][1]//input
+Base Score      : 800.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 15.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 120.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+id=username-datatest
+Base Score      : 800.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 55.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 450.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+placeholder=Enter data-test Username
+Base Score      : 800.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 30.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 150.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+id=username-datatestid
+Base Score      : 800.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 55.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 450.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+placeholder=Enter data-testid Username
+Base Score      : 800.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 30.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 150.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+id=username-aria
+Base Score      : 800.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 55.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 450.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+placeholder=Enter Aria Username
+Base Score      : 800.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 30.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 150.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+xpath=//label[normalize-space()='Username (By Placeholder):']/ancestor::*[count(.//input)=1][1]//input
+Base Score      : 800.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 15.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 120.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+id=emp-title-field
+Base Score      : 687.2549019607843
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 55.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 75.0
+Dynamic        : 0.0
+Quality        : 450.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+name=user-name-input
+Base Score      : 666.6666666666666
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 50.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 400.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+id=username-id
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 55.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 450.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+placeholder=Enter ID Username
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 30.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 150.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+id=username-name
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 55.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 450.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+placeholder=Enter Name Username
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 30.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 150.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+id=username-css
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 55.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 450.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+placeholder=Enter CSS Username
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 30.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 150.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+class=css-target-node
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 250.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : -100.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+id=username-xpath
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 55.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 450.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+placeholder=Enter XPath Username
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 30.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 150.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+id=username-placeholder
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 55.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 450.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+placeholder=Unique Placeholder Target
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 30.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 150.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+placeholder=Software Test Engineer
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 30.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 150.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+class=emp-scoped-css
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 250.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : -100.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+xpath=//label[normalize-space()='Hidden Target:']/ancestor::*[count(.//input)=1][1]//input
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 15.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 120.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+xpath=//label[normalize-space()='Disabled Target:']/ancestor::*[count(.//input)=1][1]//input
+Base Score      : 600.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 15.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 120.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+id=iframe-input
+Base Score      : 466.66666666666663
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 55.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 450.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+id=hidden-element
+Base Score      : 400.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 55.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 450.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+id=disabled-element
+Base Score      : 400.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 55.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 450.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+placeholder=Inside iFrame Target
+Base Score      : 400.0
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 30.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 150.0
+Generation     : 0.0
+
+===== SCORE BREAKDOWN =====
+css=#duplicate-card input[type='text']
+Base Score      : 87.25490196078431
+Tag            : 0.0
+Intent         : 120.0
+Identity       : 0.0
+Locator Type   : 10.0
+Parent         : 0.0
+Unique         : 100.0
+Semantic       : 0.0
+Dynamic        : 0.0
+Quality        : 0.0
+Generation     : 0.0
+
+========== Candidate Ranking ==========
+1. data-test=login-datatest-field
+   Score      : 2360.833333333333
+   Intent     : INPUT
+   Tag        : input
+   Unique     : true
+   Occurrence : 1
+
+2. data-testid=login-datatestid-field
+   Score      : 2302.878787878788
+   Intent     : INPUT
+   Tag        : input
+   Unique     : true
+   Occurrence : 1
+
+3. class=login-input-field-BROKEN
+   Score      : 2205.416666666667
+   Intent     : INPUT
+   Tag        : input
+   Unique     : true
+   Occurrence : 1
+
+4. id=username-class
+   Score      : 1525.0
+   Intent     : INPUT
+   Tag        : input
+   Unique     : true
+   Occurrence : 1
+
+5. id=username-datatest
+   Score      : 1525.0
+   Intent     : INPUT
+   Tag        : input
+   Unique     : true
+   Occurrence : 1
+
+6. id=username-datatestid
+   Score      : 1525.0
+   Intent     : INPUT
+   Tag        : input
+   Unique     : true
+   Occurrence : 1
+
+7. id=username-aria
+   Score      : 1525.0
+   Intent     : INPUT
+   Tag        : input
+   Unique     : true
+   Occurrence : 1
+
+8. aria-label=Aria Username Field
+   Score      : 1496.6666666666665
+   Intent     : INPUT
+   Tag        : input
+   Unique     : true
+   Occurrence : 1
+
+9. id=emp-title-field
+   Score      : 1487.2549019607843
+   Intent     : INPUT
+   Tag        : input
+   Unique     : true
+   Occurrence : 1
+
+10. xpath=//label[normalize-space()='Username (By Class):']/ancestor::*[count(.//input)=1][1]//input
+   Score      : 1355.0
+   Intent     : INPUT
+   Tag        : input
+   Unique     : true
+   Occurrence : 1
+
+
+===== FILTER SUMMARY =====
+Original Candidates        : 44
+After Action/Intent Filter : 44
+After Deduplication        : 44
+Final Candidates           : 10
+Label mismatch ignored for: data-test=login-datatest-field
+Label mismatch ignored for: data-testid=login-datatestid-field
+Label mismatch ignored for: class=login-input-field-BROKEN
+Label mismatch ignored for: id=username-class
+Label mismatch ignored for: id=username-datatest
+Label mismatch ignored for: id=username-datatestid
+Label mismatch ignored for: id=username-aria
+Label mismatch ignored for: aria-label=Aria Username Field
+Label mismatch ignored for: id=emp-title-field
+Label mismatch ignored for: xpath=//label[normalize-space()='Username (By Class):']/ancestor::*[count(.//input)=1][1]//input
+
+===== VALIDATION RESULT =====
+Validated Candidate : data-test=login-datatest-field
+Score               : 2360.833333333333
+Matches             : 1
+Unique              : true
+===== ENTERED SHADOW DOM HEALING =====
+
+===== SHADOW HTML =====
+
+      <style>
+        .shadow-box { padding: 10px; background: #eef; border: 1px solid #99f; border-radius: 4px; }
+      </style>
+      <div class="shadow-box">
+        <p id="shadow-text">Shadow DOM Text Content</p>
+        <input id="shadow-input" data-test="shadow-data-input" placeholder="Inside Shadow DOM">
+      </div>
+    
+=======================
+
+
+===== DOM ELEMENTS =====
+Element Count = 8
+#root id= name= placeholder=
+html id= name= placeholder=
+head id= name= placeholder=
+style id= name= placeholder=
+body id= name= placeholder=
+div id= name= placeholder=
+p id=shadow-text name= placeholder=
+input id=shadow-input name= placeholder=Inside Shadow DOM
+
+========== LABEL DEBUG ==========
+Locator      : id=shadow-input
+Variable     : login-input-field
+NearestLabel : 
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : []
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> id=shadow-input tag=input
+
+========== LABEL DEBUG ==========
+Locator      : placeholder=Inside Shadow DOM
+Variable     : login-input-field
+NearestLabel : 
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : []
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> placeholder=Inside Shadow DOM tag=input
+
+========== LABEL DEBUG ==========
+Locator      : data-test=shadow-data-input
+Variable     : login-input-field
+NearestLabel : 
+Tag          : input
+VariableTokens : [login, input, field]
+LabelTokens    : []
+Matches        : 0
+TotalTokens    : 3
+===============================
+ADD -> data-test=shadow-data-input tag=input
+
+===== RAW CANDIDATES =====
+Total : 3
+id=shadow-input tag=input intent=INPUT
+placeholder=Inside Shadow DOM tag=input intent=INPUT
+data-test=shadow-data-input tag=input intent=INPUT
+
+===== FINAL DOM CANDIDATES =====
+Total : 3
+id=shadow-input score=466.66666666666663
+data-test=shadow-data-input score=466.66666666666663
+placeholder=Inside Shadow DOM score=400.0
+
+===== SHADOW CANDIDATES =====
+Count = 3
+id=shadow-input tag=input
+data-test=shadow-data-input tag=input
+placeholder=Inside Shadow DOM tag=input
+Label mismatch ignored for: data-test=login-datatest-field
+Label mismatch ignored for: data-testid=login-datatestid-field
+Label mismatch ignored for: class=login-input-field-BROKEN
+Label mismatch ignored for: id=username-class
+Label mismatch ignored for: id=username-datatest
+Label mismatch ignored for: id=username-datatestid
+Label mismatch ignored for: id=username-aria
+Label mismatch ignored for: aria-label=Aria Username Field
+Label mismatch ignored for: id=emp-title-field
+Label mismatch ignored for: xpath=//label[normalize-space()='Username (By Class):']/ancestor::*[count(.//input)=1][1]//input
+Checking host : html id=
+Checking host : head id=
+Checking host : meta id=
+Checking host : title id=
+Checking host : style id=
+Checking host : body id=
+Checking host : h1 id=
+Checking host : div id=
+Checking host : h2 id=
+Checking host : p id=
+Checking host : div id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : div id=
+Checking host : div id=login-card
+Checking host : h2 id=
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-id
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-name
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-class
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-css
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-xpath
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-datatest
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-datatestid
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-aria
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-placeholder
+Checking host : div id=parent-employee-container
+Checking host : h2 id=
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=emp-title-field
+Checking host : div id=
+Checking host : p id=
+Checking host : button id=emp-submit-btn
+Checking host : div id=duplicate-card
+Checking host : h2 id=
+Checking host : div id=
+Checking host : input id=
+Checking host : div id=
+Checking host : input id=
+Checking host : div id=
+Checking host : input id=
+Checking host : div id=
+Checking host : h2 id=
+Checking host : button id=
+Checking host : div id=dynamic-host
+Checking host : div id=
+Checking host : h2 id=
+Checking host : ul id=item-collection
+Checking host : li id=
+Checking host : li id=
+Checking host : li id=
+Checking host : li id=
+Checking host : div id=
+Checking host : h2 id=
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=hidden-element
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=disabled-element
+Checking host : div id=
+Checking host : h2 id=
+Checking host : div id=shadow-host
+Shadow root found on : div id=shadow-host
+Searching in shadow root using:By.id: shadow-input inside shadow root -> 1
+Checking host : html id=
+Checking host : head id=
+Checking host : meta id=
+Checking host : title id=
+Checking host : style id=
+Checking host : body id=
+Checking host : h1 id=
+Checking host : div id=
+Checking host : h2 id=
+Checking host : p id=
+Checking host : div id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : div id=
+Checking host : div id=login-card
+Checking host : h2 id=
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-id
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-name
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-class
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-css
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-xpath
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-datatest
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-datatestid
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-aria
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-placeholder
+Checking host : div id=parent-employee-container
+Checking host : h2 id=
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=emp-title-field
+Checking host : div id=
+Checking host : p id=
+Checking host : button id=emp-submit-btn
+Checking host : div id=duplicate-card
+Checking host : h2 id=
+Checking host : div id=
+Checking host : input id=
+Checking host : div id=
+Checking host : input id=
+Checking host : div id=
+Checking host : input id=
+Checking host : div id=
+Checking host : h2 id=
+Checking host : button id=
+Checking host : div id=dynamic-host
+Checking host : div id=
+Checking host : h2 id=
+Checking host : ul id=item-collection
+Checking host : li id=
+Checking host : li id=
+Checking host : li id=
+Checking host : li id=
+Checking host : div id=
+Checking host : h2 id=
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=hidden-element
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=disabled-element
+Checking host : div id=
+Checking host : h2 id=
+Checking host : div id=shadow-host
+Shadow root found on : div id=shadow-host
+Searching in shadow root using:By.cssSelector: [data-test='shadow-data-input'] inside shadow root -> 1
+Checking host : html id=
+Checking host : head id=
+Checking host : meta id=
+Checking host : title id=
+Checking host : style id=
+Checking host : body id=
+Checking host : h1 id=
+Checking host : div id=
+Checking host : h2 id=
+Checking host : p id=
+Checking host : div id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : button id=
+Checking host : div id=
+Checking host : div id=login-card
+Checking host : h2 id=
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-id
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-name
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-class
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-css
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-xpath
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-datatest
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-datatestid
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-aria
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=username-placeholder
+Checking host : div id=parent-employee-container
+Checking host : h2 id=
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=emp-title-field
+Checking host : div id=
+Checking host : p id=
+Checking host : button id=emp-submit-btn
+Checking host : div id=duplicate-card
+Checking host : h2 id=
+Checking host : div id=
+Checking host : input id=
+Checking host : div id=
+Checking host : input id=
+Checking host : div id=
+Checking host : input id=
+Checking host : div id=
+Checking host : h2 id=
+Checking host : button id=
+Checking host : div id=dynamic-host
+Checking host : div id=
+Checking host : h2 id=
+Checking host : ul id=item-collection
+Checking host : li id=
+Checking host : li id=
+Checking host : li id=
+Checking host : li id=
+Checking host : div id=
+Checking host : h2 id=
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=hidden-element
+Checking host : div id=
+Checking host : label id=
+Checking host : input id=disabled-element
+Checking host : div id=
+Checking host : h2 id=
+Checking host : div id=shadow-host
+Shadow root found on : div id=shadow-host
+Searching in shadow root using:By.cssSelector: [placeholder='Inside Shadow DOM'] inside shadow root -> 1
+
+======================================================
+             SELF HEALING ANALYTICS
+======================================================
+Total Healing Attempts :            1
+Successful Heals :                  1
+Deterministic Heals :               1
+AI Heals :                          0
+Cache Hits :                        0
+Cache Misses :                      1
+Validation Failures :               0
+Healing Failures :                  0
+Success Rate :                      100.00 % 
+Cache Hit Rate :                    0.00 % 
+Average Healing Time :              9783.00 ms
+Maximum Healing Time :              9783 ms
+Minimum Healing Time :              9783 ms
+Current Cache Size :                0
+======================================================
+
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 15.31 s -- in SelfHealingFrameworkValidationTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ self-healing-plugin ---
+[INFO] Building jar: /Users/vinayak/Documents/Self-Healing-Plugin/target/self-healing-plugin-1.0-SNAPSHOT.jar
+[INFO] 
+[INFO] --- install:3.1.4:install (default-install) @ self-healing-plugin ---
+[INFO] Installing /Users/vinayak/Documents/Self-Healing-Plugin/pom.xml to /Users/vinayak/.m2/repository/com/vinayak/self-healing-plugin/1.0-SNAPSHOT/self-healing-plugin-1.0-SNAPSHOT.pom
+[INFO] Installing /Users/vinayak/Documents/Self-Healing-Plugin/target/self-healing-plugin-1.0-SNAPSHOT.jar to /Users/vinayak/.m2/repository/com/vinayak/self-healing-plugin/1.0-SNAPSHOT/self-healing-plugin-1.0-SNAPSHOT.jar
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  16.615 s
+[INFO] Finished at: 2026-07-30T13:48:52+05:30
+[INFO] ------------------------------------------------------------------------

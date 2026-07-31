@@ -8,7 +8,8 @@ import com.vinayak.healing.execution.ExecutionTracker;
 import com.vinayak.healing.intent.ElementIntent;
 import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorInfo;
-
+import java.util.List;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.By;
 
 import java.util.Map;
@@ -51,6 +52,11 @@ public class FallbackContextResolver {
         LocatorInfo locatorInfo =
                 locatorAnalyzer.analyze(
                         locator);
+
+  enrichFromDom(
+        context,
+        failedLocator,
+        locatorInfo);
 
         System.out.println(
                 "LOCATOR EVIDENCE = "
@@ -111,12 +117,15 @@ public class FallbackContextResolver {
             if (hasText(
                     semanticIdentity)) {
 
-                context.setVariableName(
-                        semanticIdentity);
+                if (!hasText(context.getLocatorTextHint())) {
+
+    context.setLocatorTextHint(
+            semanticIdentity);
+}
 
                 System.out.println(
-                        "FALLBACK VARIABLE = "
-                                + semanticIdentity);
+        "FALLBACK LOCATOR HINT = "
+                + semanticIdentity);
             }
         }
 
@@ -347,15 +356,24 @@ public class FallbackContextResolver {
         }
 
         String title =
-                findAttribute(
-                        info,
-                        "title");
+        findAttribute(
+                info,
+                "title");
 
-        if (hasText(title)) {
-            return title;
-        }
+if (hasText(title)) {
+    return title;
+}
 
-        return "";
+String value =
+        findAttribute(
+                info,
+                "value");
+
+if (hasText(value)) {
+    return value;
+}
+
+return "";
     }
 
     // ==========================================
@@ -454,13 +472,50 @@ public class FallbackContextResolver {
         // ------------------------------------------
 
         if (info != null
-                && hasText(
-                        info.getSemanticText())) {
+        && hasText(info.getSemanticText())) {
 
-            return ElementIntent.TEXT;
-        }
+    return ElementIntent.TEXT;
+}
 
-        return ElementIntent.UNKNOWN;
+/*
+ * Variable recovered during fallback.
+ */
+String variable =
+        context.getVariableName() == null
+                ? ""
+                : context.getVariableName().toLowerCase();
+
+if (variable.matches(
+        ".*(input|textbox|textfield|textarea|username|password|email|search|field|name|number|date|phone|address).*")) {
+
+    return ElementIntent.INPUT;
+}
+
+if (variable.matches(
+        ".*(button|btn|submit|save|cancel|reset|search).*")) {
+
+    return ElementIntent.BUTTON;
+}
+
+if (variable.matches(
+        ".*(dropdown|select|option).*")) {
+
+    return ElementIntent.DROPDOWN;
+}
+
+if (variable.matches(
+        ".*(link|menu|navigation|nav).*")) {
+
+    return ElementIntent.LINK;
+}
+
+if (variable.matches(
+        ".*(header|title|text|message|label).*")) {
+
+    return ElementIntent.TEXT;
+}
+
+return ElementIntent.UNKNOWN;
     }
 
     // ==========================================
@@ -499,4 +554,279 @@ public class FallbackContextResolver {
         return value != null
                 && !value.isBlank();
     }
+private void enrichFromDom(
+        FailureContext context,
+        By failedLocator,
+        LocatorInfo locatorInfo) {
+
+    if (context == null
+            || context.getDriver() == null
+            || failedLocator == null) {
+        return;
+    }
+
+    try {
+
+        List<WebElement> elements =
+                context.getDriver()
+                        .findElements(failedLocator);
+
+       if (elements.isEmpty()) {
+    return;
+}
+
+        WebElement element =
+                elements.get(0);
+
+                System.out.println("\n===== DOM ENRICHMENT =====");
+System.out.println("Locator      : " + failedLocator);
+System.out.println("Matches      : " + elements.size());
+
+for (int i = 0; i < elements.size(); i++) {
+
+    WebElement e = elements.get(i);
+
+    System.out.println(
+            "Element " + (i + 1)
+                    + " value="
+                    + e.getAttribute("value"));
+}
+
+System.out.println(
+        "Selected="
+                + element.getAttribute("value"));
+
+System.out.println("==========================");
+
+        // -----------------------------
+        // TAG
+        // -----------------------------
+
+        String tag =
+                element.getTagName();
+
+        if (hasText(tag)) {
+            locatorInfo.setTag(tag);
+        }
+
+        // -----------------------------
+        // PLACEHOLDER
+        // -----------------------------
+
+        String placeholder =
+                element.getAttribute("placeholder");
+
+        if (hasText(placeholder)) {
+
+            locatorInfo.getAttributes()
+                    .put("placeholder",
+                            placeholder);
+
+            if (!hasText(
+                    context.getExpectedLabel())) {
+
+                context.setExpectedLabel(
+                        placeholder);
+            }
+        }
+
+        // -----------------------------
+        // ARIA LABEL
+        // -----------------------------
+
+        String ariaLabel =
+                element.getAttribute("aria-label");
+
+        if (hasText(ariaLabel)) {
+
+            locatorInfo.getAttributes()
+                    .put("aria-label",
+                            ariaLabel);
+
+            if (!hasText(
+                    context.getExpectedLabel())) {
+
+                context.setExpectedLabel(
+                        ariaLabel);
+            }
+        }
+
+        // -----------------------------
+        // TITLE
+        // -----------------------------
+
+        String title =
+                element.getAttribute("title");
+
+        if (hasText(title)) {
+
+            locatorInfo.getAttributes()
+                    .put("title",
+                            title);
+
+            if (!hasText(
+                    context.getExpectedLabel())) {
+
+                context.setExpectedLabel(
+                        title);
+            }
+        }
+        // -----------------------------
+// VALUE
+// -----------------------------
+
+String value =
+        element.getAttribute("value");
+
+if (hasText(value)) {
+
+    locatorInfo.getAttributes()
+            .put("value", value);
+
+    // Do NOT use input value as expected text.
+    // It changes during execution and is not a stable identifier.
+
+    if (!hasText(context.getLocatorTextHint())) {
+        context.setLocatorTextHint(value);
+    }
+
+    if (!hasText(context.getExpectedLabel())) {
+        context.setExpectedLabel(value);
+    }
+}
+
+        // -----------------------------
+        // LABEL
+        // -----------------------------
+
+       String label =
+        resolveLabel(
+                context,
+                element);
+
+        if (hasText(label)) {
+
+            context.setExpectedLabel(label);
+
+            if (!hasText(
+                    context.getLocatorTextHint())) {
+
+                context.setLocatorTextHint(label);
+            }
+        }
+
+        // -----------------------------
+        // TEXT
+        // -----------------------------
+
+        String text =
+                element.getText();
+
+        if (hasText(text)) {
+
+            if (!hasText(context.getExpectedText())) {
+    context.setExpectedText(text);
+}
+
+            if (!hasText(
+                    context.getLocatorTextHint())) {
+
+                context.setLocatorTextHint(text);
+            }
+        }
+
+        System.out.println(
+                "DOM EXPECTED LABEL = "
+                        + context.getExpectedLabel());
+
+        System.out.println(
+                "DOM EXPECTED TEXT = "
+                        + context.getExpectedText());
+
+        System.out.println(
+                "DOM LOCATOR HINT = "
+                        + context.getLocatorTextHint());
+
+    } catch (Exception ignored) {
+
+    }
+}
+private String resolveLabel(
+        FailureContext context,
+        WebElement element){
+
+    if (element == null) {
+        return "";
+    }
+
+    try {
+
+        // ==========================
+        // Strategy 1 : parent <label>
+        // ==========================
+
+       WebElement parent =
+        element.findElement(
+                By.xpath("./parent::*"));
+
+if ("label".equalsIgnoreCase(parent.getTagName())) {
+
+    String text = parent.getText();
+
+            if (hasText(text)) {
+                return text.trim();
+            }
+        }
+
+    } catch (Exception ignored) {
+    }
+   
+
+    try {
+
+        // ==========================
+        // Strategy 2 : previous sibling label
+        // ==========================
+
+        WebElement label =
+                element.findElement(
+                        By.xpath("./preceding-sibling::label[1]"));
+
+        String text = label.getText();
+
+        if (hasText(text)) {
+            return text.trim();
+        }
+
+    } catch (Exception ignored) {
+    }
+
+    try {
+
+        // ==========================
+        // Strategy 3 : label using for=""
+        // ==========================
+
+        String id =
+                element.getAttribute("id");
+
+        if (hasText(id)) {
+
+WebElement label =
+        context.getDriver().findElement(
+                By.xpath("//label[@for='" + id + "']"));
+
+            String text =
+                    label.getText();
+
+            if (hasText(text)) {
+                return text.trim();
+            }
+        }
+
+    } catch (Exception ignored) {
+    }
+
+    return "";
+}
 }

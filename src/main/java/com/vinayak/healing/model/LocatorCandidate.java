@@ -12,6 +12,9 @@ private String name = "";
 private String ariaLabel = "";
     private String tagName;
     private String inputType;
+    private boolean generatedLocator = false;
+    private String generationStrategy = "";
+    private double generationConfidence = 0.0;
     private ElementIntent intent;
 private String parentTag;
 private String parentClass;
@@ -71,6 +74,29 @@ public void setOccurrenceCount(int occurrenceCount) {
     this.uniqueLocator = this.occurrenceCount == 1;
 }
 
+public boolean isGeneratedLocator() {
+    return generatedLocator;
+}
+
+public void setGeneratedLocator(boolean generatedLocator) {
+    this.generatedLocator = generatedLocator;
+}
+
+public String getGenerationStrategy() {
+    return generationStrategy;
+}
+
+public void setGenerationStrategy(String generationStrategy) {
+    this.generationStrategy = generationStrategy;
+}
+
+public double getGenerationConfidence() {
+    return generationConfidence;
+}
+
+public void setGenerationConfidence(double generationConfidence) {
+    this.generationConfidence = generationConfidence;
+}
 public boolean isUniqueLocator() {
     return uniqueLocator;
 }
@@ -199,6 +225,9 @@ public void setAriaLabel(String ariaLabel) {
                 ", intent=" + intent +
                 ", score=" + score +
                 ", finalScore=" + finalScore +
+                ", generatedLocator=" + generatedLocator +
+", generationStrategy='" + generationStrategy + '\'' +
+", generationConfidence=" + generationConfidence +
                 ", occurrenceCount=" + occurrenceCount +
 ", uniqueLocator=" + uniqueLocator +
                 '}';

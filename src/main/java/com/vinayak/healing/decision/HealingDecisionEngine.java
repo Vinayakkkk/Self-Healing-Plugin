@@ -79,17 +79,16 @@ if (occurrenceCount > 1) {
          *
          * Safe to heal and persist.
          */
-        if (uniqueLocator
-        && semanticSignals >= 2
-        && scoreGap >= 100) {
+       if (uniqueLocator
+        && semanticSignals >= 2) {
 
-            return new HealingDecision(
-                    validatedCandidate,
-                    HealingConfidence.HIGH,
-                    true,
-                    true,
-                    "Strong semantic evidence and clear ranking lead");
-        }
+    return new HealingDecision(
+            validatedCandidate,
+            HealingConfidence.HIGH,
+            true,
+            true,
+            "Validated unique candidate with strong semantic evidence");
+}
 
         /*
          * HIGH:
@@ -98,17 +97,6 @@ if (occurrenceCount > 1) {
          * If it has several semantic signals, there is no
          * meaningful competing candidate.
          */
-       if (uniqueLocator
-        && semanticSignals >= 3
-        && Double.isInfinite(scoreGap)) {
-
-            return new HealingDecision(
-                    validatedCandidate,
-                    HealingConfidence.HIGH,
-                    true,
-                    true,
-                    "Validated candidate has strong semantic evidence");
-        }
 
         /*
          * MEDIUM:

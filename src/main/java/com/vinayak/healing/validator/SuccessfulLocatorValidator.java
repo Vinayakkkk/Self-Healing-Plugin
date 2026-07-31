@@ -2,21 +2,33 @@ package com.vinayak.healing.validator;
 
 import org.openqa.selenium.WebElement;
 
+import com.vinayak.healing.model.FailureContext;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class SuccessfulLocatorValidator {
 
-    public boolean isSuspicious(
-            String variableName,
-            WebElement element) {
+   public boolean isSuspicious(
+        FailureContext context,
+        WebElement element) {
 
-        if (variableName == null
-                || variableName.isBlank()
-                || element == null) {
+                System.out.println(">>> ENTERED SuccessfulLocatorValidator");
 
-            return false;
-        }
+     if (context == null
+        || element == null) {
+
+    return false;
+}
+
+String variableName =
+        context.getVariableName();
+
+if (variableName == null
+        || variableName.isBlank()) {
+
+    return false;
+}
 
         List<String> variableTokens =
                 tokenize(variableName);
@@ -40,6 +52,10 @@ public class SuccessfulLocatorValidator {
                 meaningfulMatches++;
             }
         }
+        System.out.println("Variable      : " + context.getVariableName());
+System.out.println("ExpectedLabel : " + context.getExpectedLabel());
+System.out.println("ExpectedText  : " + context.getExpectedText());
+System.out.println("LocatorHint   : " + context.getLocatorTextHint());
 
         /*
          * Do not reject an element only because there
@@ -49,33 +65,22 @@ public class SuccessfulLocatorValidator {
          * Detect only strong contradictions.
          */
 
-        boolean variableExpectsCartBadge =
-                variableTokens.contains("cart")
-                        && variableTokens.contains("badge");
+        String expectedLabel =
+        context.getExpectedLabel();
 
-        boolean actualElementIsTitle =
-                elementContext.contains("title");
+if (expectedLabel != null
+        && !expectedLabel.isBlank()) {
 
-        if (variableExpectsCartBadge
-                && actualElementIsTitle
-                && meaningfulMatches == 0) {
+    if (!elementContext.contains(
+            expectedLabel.toLowerCase())) {
 
-            System.out.println(
-                    "SUCCESSFUL LOCATOR SUSPICIOUS");
+        System.out.println(
+                "SUCCESSFUL LOCATOR SUSPICIOUS");
 
-            System.out.println(
-                    "Variable = "
-                            + variableName);
-
-            System.out.println(
-                    "Element context = "
-                            + elementContext);
-
-            return true;
-        }
-
-        return false;
+        return true;
     }
+        }return false;}
+    
 
     private String buildElementContext(
             WebElement element) {
@@ -162,4 +167,5 @@ public class SuccessfulLocatorValidator {
 
         return tokens;
     }
+    
 }

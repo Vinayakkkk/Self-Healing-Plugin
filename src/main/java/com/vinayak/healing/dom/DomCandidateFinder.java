@@ -10,6 +10,7 @@ import org.jsoup.select.Elements;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Comparator;
+import com.vinayak.healing.generator.UniqueLocatorGenerator;
 //import com.vinayak.healing.model.ContextInfo;
 import com.vinayak.healing.model.FailureContext;
 import java.util.Set;
@@ -33,6 +34,8 @@ public class DomCandidateFinder {
         new DomContextAnalyzer();
    private final LocatorAnalyzer locatorAnalyzer =
         new LocatorAnalyzer();
+        private final UniqueLocatorGenerator uniqueLocatorGenerator =
+        new UniqueLocatorGenerator();
 
 // private final ContextBuilder contextBuilder =
 //         new ContextBuilder();
@@ -59,6 +62,21 @@ private final ElementFeatureExtractor extractor =
 
         Elements elements =
         document.getAllElements();
+        addCollectionCandidates(
+        candidates,
+        elements,
+        context);
+
+        System.out.println("\n===== DOM ELEMENTS =====");
+System.out.println("Element Count = " + elements.size());
+
+for (Element e : elements) {
+    System.out.println(
+        e.tagName()
+        + " id=" + e.id()
+        + " name=" + e.attr("name")
+        + " placeholder=" + e.attr("placeholder"));
+}
 
        
 
@@ -72,6 +90,22 @@ LocatorInfo locatorInfo =
        
 
         for (Element element : elements) {
+
+                ElementIntent expectedIntent =
+        context == null
+                ? ElementIntent.UNKNOWN
+                : context.getExpectedIntent();
+
+ElementIntent actualIntent =
+        determineIntent(element);
+
+if (!shouldProcessElement(
+        expectedIntent,
+        actualIntent,
+        element)) {
+
+    continue;
+}
 
 
                
@@ -310,16 +344,48 @@ variableInfo,
            
         }
 
+        System.out.println("\n===== RAW CANDIDATES =====");
+System.out.println("Total : " + candidates.size());
+
+for (LocatorCandidate c : candidates) {
+    System.out.println(
+        c.getLocatorType() + "=" +
+        c.getLocatorValue() +
+        " tag=" + c.getTagName() +
+        " intent=" + c.getIntent());
+}
+
         populateLocatorUniqueness(
         document,
         candidates);
+        for (int i = 0; i < candidates.size(); i++) {
+
+    LocatorCandidate updated =
+            uniqueLocatorGenerator.generate(
+                    document,
+                    candidates.get(i));
+
+    if (updated != null) {
+        candidates.set(i, updated);
+    }
+}
+populateLocatorUniqueness(document, candidates);
+candidates = removeDuplicateCandidates(candidates);
 
         candidates.sort(
                 Comparator.comparingDouble(
         LocatorCandidate::getFinalScore)
                         .reversed());
 
-     
+     System.out.println("\n===== FINAL DOM CANDIDATES =====");
+System.out.println("Total : " + candidates.size());
+
+for (LocatorCandidate c : candidates) {
+    System.out.println(
+        c.getLocatorType() + "=" +
+        c.getLocatorValue() +
+        " score=" + c.getFinalScore());
+}
 
 
         return candidates;
@@ -555,6 +621,12 @@ if(element.tagName().equalsIgnoreCase("input")
    nearestLabel =
         findClosestLabel(element);
 
+        System.out.println("\n========== LABEL DEBUG ==========");
+System.out.println("Locator      : " + locatorType + "=" + locatorValue);
+System.out.println("Variable     : " + context.getVariableName());
+System.out.println("NearestLabel : " + nearestLabel);
+System.out.println("Tag          : " + element.tagName());
+
     searchableText += " " + nearestLabel;
 }
 
@@ -571,6 +643,12 @@ int nearestLabelMatches =
         countExactMatches(
                 variableTokens,
                 labelTokens);
+
+                System.out.println("VariableTokens : " + variableTokens);
+System.out.println("LabelTokens    : " + labelTokens);
+System.out.println("Matches        : " + nearestLabelMatches);
+System.out.println("TotalTokens    : " + variableTokens.size());
+System.out.println("===============================");
 
 
 
@@ -665,6 +743,28 @@ candidate.setFinalScore(
 
        candidate.setNearestLabel(
         nearestLabel);
+
+        candidate.setElementText(element.ownText().trim());
+
+candidate.setPlaceholder(
+        element.attr("placeholder"));
+
+candidate.setAriaLabel(
+        element.attr("aria-label"));
+
+candidate.setId(
+        element.id());
+
+candidate.setName(
+        element.attr("name"));
+
+        System.out.println(
+    "ADD -> "
+    + locatorType
+    + "="
+    + locatorValue
+    + " tag="
+    + element.tagName());
 
 candidates.add(
         candidate);
@@ -1948,5 +2048,111 @@ private String cssAttributeValue(
                     .replace("\\", "\\\\")
                     .replace("\"", "\\\"")
             + "\"";
+}
+private boolean shouldProcessElement(
+        ElementIntent expected,
+        ElementIntent actual,
+        Element element) {
+
+    if (expected == null
+            || expected == ElementIntent.UNKNOWN) {
+
+        return true;
+    }
+
+    switch (expected) {
+
+        case INPUT:
+
+            return actual == ElementIntent.INPUT;
+
+        case BUTTON:
+
+            return actual == ElementIntent.BUTTON;
+
+        case DROPDOWN:
+
+            return actual == ElementIntent.DROPDOWN;
+
+        case LINK:
+
+            return actual == ElementIntent.LINK;
+
+        case TEXT:
+
+            return actual == ElementIntent.TEXT;
+
+        default:
+
+            return true;
+    }
+}
+private List<LocatorCandidate> removeDuplicateCandidates(
+        List<LocatorCandidate> candidates) {
+
+    java.util.Map<String, LocatorCandidate> bestCandidates =
+            new java.util.LinkedHashMap<>();
+
+    for (LocatorCandidate candidate : candidates) {
+
+        String key =
+                candidate.getLocatorType().toLowerCase()
+                        + "|"
+                        + candidate.getLocatorValue();
+
+        LocatorCandidate existing =
+                bestCandidates.get(key);
+
+        if (existing == null
+                || candidate.getFinalScore() > existing.getFinalScore()) {
+
+            bestCandidates.put(key, candidate);
+        }
+    }
+
+    return new ArrayList<>(bestCandidates.values());
+}
+private void addCollectionCandidates(
+        List<LocatorCandidate> candidates,
+        Elements elements,
+        FailureContext context) {
+
+    for (Element element : elements) {
+
+        Elements children = element.children();
+
+        if (children.size() < 2) {
+            continue;
+        }
+
+        String firstTag = children.first().tagName();
+
+        boolean sameTag = children.stream()
+                .allMatch(e -> e.tagName().equals(firstTag));
+
+        if (!sameTag) {
+            continue;
+        }
+
+        if (element.id().isBlank()) {
+            continue;
+        }
+
+        LocatorCandidate candidate =
+                new LocatorCandidate(
+                        "css",
+                        "#" + element.id() + " > " + firstTag,
+                        firstTag,
+                        "",
+                        ElementIntent.TEXT,
+                        600,
+                        element.tagName(),
+                        element.className(),
+                        element.id());
+
+        candidate.setFinalScore(600);
+
+        candidates.add(candidate);
+    }
 }
 }

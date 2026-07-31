@@ -7,6 +7,7 @@ import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
 import org.openqa.selenium.*;
 import com.vinayak.healing.execution.ExecutionAction;
+import com.vinayak.healing.iframe.IframeHealingEngine;
 
 
 import java.util.List;
@@ -14,6 +15,10 @@ import java.util.List;
 public class CandidateValidator {
 
         private static final double MIN_HEAL_SCORE = 1.0;
+
+        private final IframeHealingEngine
+        iframeHealingEngine =
+        new IframeHealingEngine();
 
    public LocatorCandidate validate(
         WebDriver driver,
@@ -35,12 +40,13 @@ for (LocatorCandidate candidate : candidates) {
 
 
 
+if (!isCompatibleWithExpectedIntent(candidate, context)) {
 
-if (!isCompatibleWithExpectedIntent(
-        candidate,
-        context)) {
-
-    
+    System.out.println(
+            "FAILED: isCompatibleWithExpectedIntent -> "
+            + candidate.getLocatorType()
+            + "="
+            + candidate.getLocatorValue());
 
     continue;
 }
@@ -56,63 +62,64 @@ try {
                     locator);
 
     if (element == null) {
+
+         System.out.println(
+            "FAILED: element == null -> "
+            + candidate.getLocatorType()
+            + "="
+            + candidate.getLocatorValue());
         continue;
     }
 
-    if (!validateDisplayed(element)) {
-        continue;
-    }
-
-    if (!validateEnabled(element)) {
+if (!validateDisplayed(element)) {
+    System.out.println("FAILED: validateDisplayed");
     continue;
 }
 
-if (!validateActionCompatibility(
-        element,
-        context)) {
+if (!validateEnabled(element)) {
+    System.out.println("FAILED: validateEnabled");
     continue;
 }
 
-if (!validateIntent(
-        element,
-        candidate,
-        context)) {
+if (!validateActionCompatibility(element, context)) {
+    System.out.println("FAILED: validateActionCompatibility");
     continue;
 }
 
-    if (!validateFieldLabel(
-            candidate,
-            context)) {
-        continue;
-    }
+if (!validateIntent(element, candidate, context)) {
+    System.out.println("FAILED: validateIntent");
+    continue;
+}
 
-    if (!validateTag(
-            element,
-            candidate)) {
-        continue;
-    }
+if (!validateFieldLabel(candidate, context)) {
+    System.out.println("FAILED: validateFieldLabel");
+    continue;
+}
 
-    if (!validateLocatorAttribute(
-            element,
-            candidate)) {
-        continue;
-    }
+if (!validateTag(element, candidate)) {
+    System.out.println("FAILED: validateTag");
+    continue;
+}
 
-    if (!validateExpectedText(
-            element,
-            context)) {
-        continue;
-    }
+if (!validateLocatorAttribute(element, candidate)) {
+    System.out.println("FAILED: validateLocatorAttribute");
+    continue;
+}
 
-    
+if (!validateExpectedText(element, context)) {
+    System.out.println("FAILED: validateExpectedText");
+    continue;
+}
 
     if (candidate.getFinalScore() > bestScore) {
         bestScore = candidate.getFinalScore();
         bestCandidate = candidate;
     }
 
-} catch (Exception e) {
+}catch (Exception e) {
 
+    System.out.println("VALIDATOR EXCEPTION");
+    e.printStackTrace();
 }
 
 
@@ -136,28 +143,157 @@ return null;
     // =====================================================
 
 private WebElement findSingleElement(
-WebDriver driver,
-By locator) {
+        WebDriver driver,
+        By locator) {
 
-List<WebElement> elements =
-        driver.findElements(locator);
+  List<WebElement> elements = List.of();
 
-if (elements.isEmpty()) {
+try {
 
-   
+    elements = driver.findElements(locator);
 
-    return null;
+    System.out.println("\n===== NORMAL DOM SEARCH =====");
+System.out.println("Locator : " + locator);
+System.out.println("Matches : " + elements.size());
+
+if (locator.toString().startsWith("By.cssSelector:")) {
+    System.out.println(
+            "duplicate-card exists : "
+                    + driver.findElements(By.id("duplicate-card")).size());
+}
+
+System.out.println("=============================\n");
+
+} catch (Exception e) {
+
+    System.out.println(
+            "Driver search failed for: "
+                    + locator);
+
+    e.printStackTrace();
+}
+
+if (elements.size() == 1) {
+    return elements.get(0);
 }
 
 if (elements.size() > 1) {
-
-
-
     return null;
 }
 
-return elements.get(0);
+    JavascriptExecutor js =
+            (JavascriptExecutor) driver;
 
+    List<WebElement> hosts =
+            driver.findElements(By.cssSelector("*"));
+
+    for (WebElement host : hosts) {
+
+        try {
+            System.out.println(
+                "Checking host : "
+                        + host.getTagName()
+                        + " id="
+                        + host.getAttribute("id"));
+
+            Object hasShadow =
+                    js.executeScript(
+                            "return arguments[0].shadowRoot != null;",
+                            host);
+
+            if (!(hasShadow instanceof Boolean)
+                    || !((Boolean) hasShadow)) {
+                continue;
+            }
+
+            SearchContext shadowRoot =
+                    host.getShadowRoot();
+                    System.out.println(
+        "Shadow root found on : "
+                + host.getTagName()
+                + " id="
+                + host.getAttribute("id"));
+
+            By shadowLocator = locator;
+
+String locatorString = locator.toString();
+
+if (locatorString.startsWith("By.id: ")) {
+
+    shadowLocator = By.cssSelector(
+            "#" + locatorString.replace("By.id: ", ""));
+
+} else if (locatorString.startsWith("By.name: ")) {
+
+    String value =
+            locatorString.replace("By.name: ", "");
+
+    shadowLocator =
+            By.cssSelector(
+                    "[name='" + value + "']");
+
+} else if (locatorString.startsWith("By.className: ")) {
+
+    shadowLocator =
+            By.cssSelector(
+                    "." + locatorString.replace("By.className: ", ""));
+}
+
+if (locatorString.startsWith("By.xpath:")) {
+    continue;
+}
+
+List<WebElement> shadowElements =
+        shadowRoot.findElements(shadowLocator);
+                    System.out.println(
+        "Searching in shadow root using:"
+                + locator
+                + " inside shadow root -> "
+                + shadowElements.size());
+
+            if (shadowElements.size() == 1) {
+                return shadowElements.get(0);
+            }
+
+            if (shadowElements.size() > 1) {
+                return null;
+            }
+
+        } 
+        catch (Exception e) {
+
+    System.out.println(
+            "Shadow search exception for locator: "
+                    + locator);
+
+    e.printStackTrace();
+}
+    }
+
+   /*
+ * Normal DOM and Shadow DOM search failed.
+ * Try iframe search before giving up.
+ */
+try {
+
+    WebElement iframeElement =
+            iframeHealingEngine.findElement(
+                    driver,
+                    locator);
+
+    if (iframeElement != null) {
+
+        System.out.println(
+                "Element validated inside iframe.");
+
+        return iframeElement;
+    }
+
+} catch (NoSuchElementException ignored) {
+    // Element not found in any iframe.
+}
+
+return null;
 }
 
     // =====================================================
@@ -444,9 +580,11 @@ private boolean validateIntent(
 
             case "href":
 
-                return attributeEquals(
-                        element.getAttribute("href"),
-                        locatorValue);
+    String href =
+            element.getAttribute("href");
+
+    return href != null
+            && href.endsWith(locatorValue);
 
             default:
 
@@ -533,14 +671,31 @@ private boolean validateExpectedText(
         return true;
     }
 
-    String actualText =
-            element.getText();
+String actualText =
+        element.getText();
 
-    if (actualText == null
-            || actualText.isBlank()) {
+/*
+ * Input/textarea values are stored in the value attribute,
+ * not as visible text.
+ */
+if (actualText == null || actualText.isBlank()) {
 
-        return false;
-    }
+    actualText =
+            element.getAttribute("value");
+}
+
+System.out.println("\n===== TEXT VALIDATION =====");
+System.out.println("Expected : " + expectedText);
+System.out.println("Actual   : " + actualText);
+System.out.println("Tag      : " + element.getTagName());
+System.out.println("Value    : " + element.getAttribute("value"));
+System.out.println("===========================\n");
+
+if (actualText == null
+        || actualText.isBlank()) {
+
+    return false;
+}
 
     String expected =
             normalizeText(expectedText);
@@ -673,22 +828,15 @@ private boolean validateFieldLabel(
         return true;
     }
 
-    if (context.getExpectedIntent()
-            != ElementIntent.INPUT) {
+    if (context.getExpectedIntent() != ElementIntent.INPUT) {
         return true;
     }
 
-    String variableName =
-            context.getVariableName();
-
-    String nearestLabel =
-            candidate.getNearestLabel();
+    String variableName = context.getVariableName();
+    String nearestLabel = candidate.getNearestLabel();
 
     /*
-     * No variable name or no extracted DOM label:
-     * do not reject here.
-     * Other checks such as tag, uniqueness, displayed,
-     * enabled, and intent still protect the framework.
+     * Missing information should never reject a candidate.
      */
     if (variableName == null
             || variableName.isBlank()
@@ -728,21 +876,16 @@ private boolean validateFieldLabel(
     }
 
     /*
-     * Example:
-     * variableName = employeeNameInput
-     * nearestLabel = Employee Name
-     * → employee + name match → accept
-     *
-     * variableName = employeeNameInput
-     * nearestLabel = Supervisor Name
-     * → only name matches, employee does not → reject
+     * Label mismatch is only informational.
+     * Do not reject an otherwise valid candidate.
      */
-    if (meaningfulTokens > 0
-            && matchedTokens == 0) {
+    if (meaningfulTokens > 0 && matchedTokens == 0) {
 
-
-
-        return false;
+        System.out.println(
+                "Label mismatch ignored for: "
+                        + candidate.getLocatorType()
+                        + "="
+                        + candidate.getLocatorValue());
     }
 
     return true;

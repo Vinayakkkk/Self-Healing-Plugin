@@ -151,12 +151,13 @@ public class CachedLocatorValidator {
         // 8. LABEL IDENTITY
         // ==========================================
 
-        if (!validateLabelIdentity(
-                element,
-                context)) {
+if (!validateLabelIdentity(
+        driver,
+        element,
+        context)) {
 
-            return false;
-        }
+    return false;
+}
 
         System.out.println(
                 "SEMANTIC CACHE VALIDATION PASSED");
@@ -480,9 +481,10 @@ public class CachedLocatorValidator {
     // LABEL IDENTITY
     // =====================================================
 
-    private boolean validateLabelIdentity(
-            WebElement element,
-            FailureContext context) {
+   private boolean validateLabelIdentity(
+        WebDriver driver,
+        WebElement element,
+        FailureContext context) {
 
         String expectedLabel =
                 context.getExpectedLabel();
@@ -515,7 +517,7 @@ public class CachedLocatorValidator {
             if (hasText(elementId)) {
 
                 List<WebElement> labels =
-                        element.findElements(
+                        driver.findElements(
                                 By.xpath(
                                         "//label[@for="
                                                 + xpathLiteral(

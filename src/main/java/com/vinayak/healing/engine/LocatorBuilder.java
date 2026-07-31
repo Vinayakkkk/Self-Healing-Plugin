@@ -71,6 +71,10 @@ public class LocatorBuilder {
             case "cssselector":
                 return By.cssSelector(locatorValue);
 
+                case "href":
+    return By.cssSelector(
+            "[href='" + locatorValue + "']");
+
             case "class":
             case "classname":
 
@@ -85,6 +89,10 @@ public class LocatorBuilder {
             case "placeholder":
                 return By.cssSelector(
                         "[placeholder='" + locatorValue + "']");
+
+                        case "aria-label":
+    return By.cssSelector(
+            "[aria-label='" + locatorValue + "']");
 
             case "type":
                 return By.cssSelector(

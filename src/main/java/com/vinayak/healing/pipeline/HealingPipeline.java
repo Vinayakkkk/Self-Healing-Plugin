@@ -32,6 +32,8 @@ public class HealingPipeline {
 
     private final CandidateRanker candidateRanker =
             new CandidateRanker();
+            private final CandidateFilter candidateFilter =
+        new CandidateFilter();
 
 public PipelineResult execute(
         FailureContext failureContext) {
@@ -110,8 +112,7 @@ public PipelineResult execute(
 
    
 
-    CandidateFilter candidateFilter =
-            new CandidateFilter();
+
 
     candidates =
             candidateFilter.filter(
@@ -125,7 +126,17 @@ public PipelineResult execute(
     // ======================================
     // STEP 7 - CANDIDATE VALIDATION
     // ======================================
+System.out.println("\n===== FINAL CANDIDATES =====");
 
+for (LocatorCandidate c : candidates) {
+
+    System.out.println(
+            c.getLocatorType()
+            + "="
+            + c.getLocatorValue()
+            + " | score="
+            + c.getFinalScore());
+}
     LocatorCandidate validatedCandidate =
             candidateValidator.validate(
                     failureContext.getDriver(),

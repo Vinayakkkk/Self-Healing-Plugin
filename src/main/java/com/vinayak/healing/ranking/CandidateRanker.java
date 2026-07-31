@@ -33,8 +33,7 @@ public class CandidateRanker {
 
         for (LocatorCandidate candidate : candidates) {
 
-            double score =
-                    candidate.getScore();
+           double score = candidate.getFinalScore();
 
             score += calculateTagScore(
                     context,
@@ -48,8 +47,7 @@ public class CandidateRanker {
                     context,
                     candidate);
 
-            score += calculateLocatorTypeScore(
-                    candidate);
+            score += calculateLocatorTypeScore(context, candidate);
 
             score += calculateParentScore(
                     candidate);
@@ -67,8 +65,24 @@ public class CandidateRanker {
 
             score += calculateQualityScore(
                     candidate);
+                    score += calculateGenerationScore(candidate);
 
-            candidate.setFinalScore(score);
+            System.out.println("\n===== SCORE BREAKDOWN =====");
+System.out.println(candidate.getLocatorType() + "=" + candidate.getLocatorValue());
+
+System.out.println("Base Score      : " + candidate.getFinalScore());
+System.out.println("Tag            : " + calculateTagScore(context, candidate));
+System.out.println("Intent         : " + calculateIntentScore(context, candidate));
+System.out.println("Identity       : " + calculateIdentityScore(context, candidate));
+System.out.println("Locator Type   : " + calculateLocatorTypeScore(context, candidate));
+System.out.println("Parent         : " + calculateParentScore(candidate));
+System.out.println("Unique         : " + calculateUniquenessScore(candidate));
+System.out.println("Semantic       : " + calculateSemanticSimilarityScore(failedLocator, candidate));
+System.out.println("Dynamic        : " + calculateDynamicScore(context, candidate));
+System.out.println("Quality        : " + calculateQualityScore(candidate));
+System.out.println("Generation     : " + calculateGenerationScore(candidate));
+
+candidate.setFinalScore(score);
         }
 
         candidates.sort(
@@ -115,25 +129,54 @@ private double calculateIntentScore(
 }
 
 private double calculateLocatorTypeScore(
+        FailureContext context,
         LocatorCandidate candidate) {
 
-    String locatorType =
-            candidate.getLocatorType();
+    String locatorType = candidate.getLocatorType();
 
     if (!hasText(locatorType)) {
         return 0;
     }
 
-    locatorType =
-            locatorType.toLowerCase();
+    locatorType = locatorType.toLowerCase();
+
+    String failedLocator =
+            context.getFailedLocator() == null
+                    ? ""
+                    : context.getFailedLocator().toLowerCase();
+
+    // Strong bonus if candidate uses the same locator strategy
+    if ((failedLocator.contains("by.classname")
+        || failedLocator.contains("@class"))
+        && locatorType.equals("class")) {
+
+    return 250;
+}
+
+if ((failedLocator.contains("by.id")
+        || failedLocator.contains("@id"))
+        && locatorType.equals("id")) {
+
+    return 250;
+}
+
+if ((failedLocator.contains("by.name")
+        || failedLocator.contains("@name"))
+        && locatorType.equals("name")) {
+
+    return 250;
+}
 
     switch (locatorType) {
 
+        case "class":
+            return 60;
+
         case "id":
-            return 50;
+            return 55;
 
         case "name":
-            return 40;
+            return 50;
 
         case "data-test":
         case "data-testid":
@@ -255,23 +298,19 @@ private double calculateIdentityScore(
         return 0;
     }
 
-String variable;
 
-String failedSemantic =
-        extractSemanticValue(
-                context.getFailedLocator());
+String variable =
+        normalize(context.getVariableName());
 
-if (hasText(failedSemantic)) {
-
-    variable =
-            normalize(
-                    failedSemantic);
-
-} else {
+if (!hasText(variable)
+        || "direct locator".equals(variable)
+        || "direct_locator".equals(variable)
+        || "directlocator".equals(variable)) {
 
     variable =
             normalize(
-                    context.getVariableName());
+                    extractSemanticValue(
+                            context.getFailedLocator()));
 }
 
     String locatorValue =
@@ -292,6 +331,14 @@ if (hasText(failedSemantic)) {
             tokenCoverage(
                     variable,
                     label);
+                    if (labelCoverage >= 1.0)
+    return 600;
+
+if (labelCoverage >= 0.75)
+    return 450;
+
+if (labelCoverage >= 0.50)
+    return 250;
 
     String locatorType =
             candidate.getLocatorType() == null
@@ -324,16 +371,19 @@ if (hasText(failedSemantic)) {
             return 150;
     }
 
-    if ("class".equals(locatorType)
-            || "css".equals(locatorType)
-            || "cssselector".equals(locatorType)) {
+if ("class".equals(locatorType)
+        || "css".equals(locatorType)
+        || "cssselector".equals(locatorType)) {
 
-        if (locatorCoverage >= 1.0)
-            return 75;
+    if (locatorCoverage >= 1.0)
+        return 450;
 
-        if (locatorCoverage >= 0.50)
-            return 30;
-    }
+    if (locatorCoverage >= 0.75)
+        return 325;
+
+    if (locatorCoverage >= 0.50)
+        return 200;
+}
 
     if (labelCoverage >= 1.0)
         return 300;
@@ -568,6 +618,15 @@ private String extractSemanticValue(
         return css.group(1);
     }
 
+    java.util.regex.Matcher xpath =
+        java.util.regex.Pattern
+                .compile("@[a-zA-Z0-9_-]+=['\"]([^'\"]+)['\"]")
+                .matcher(cleaned);
+
+if (xpath.find()) {
+    return xpath.group(1);
+}
+
     return cleaned;
 }
 
@@ -585,17 +644,14 @@ if (first.equals(second)) {
     return 1.0;
 }
 
-if (first.contains(second)
-        || second.contains(first)) {
-
-    return 1.0;
-}
 
 if (first.startsWith(second)
         || second.startsWith(first)) {
 
-    return 1.0;
+    return 0.90;
 }
+
+
 
     int distance =
             levenshteinDistance(
@@ -650,4 +706,57 @@ private int levenshteinDistance(
     }
 
     return dp[first.length()][second.length()];
-}}
+}
+private double calculateGenerationScore(
+        LocatorCandidate candidate) {
+
+    if (!candidate.isGeneratedLocator()) {
+        return 0;
+    }
+
+    double score = candidate.getGenerationConfidence();
+
+    String strategy = candidate.getGenerationStrategy();
+
+    if (strategy == null) {
+        return score;
+    }
+
+    switch (strategy.toUpperCase()) {
+
+        case "ID":
+            return score + 100;
+
+        case "DATA_TESTID":
+        case "DATA_TEST":
+            return score + 90;
+
+        case "PARENT_ID":
+            return score + 80;
+
+        case "PARENT_DATA":
+            return score + 75;
+
+        case "SEMANTIC_CONTAINER":
+            return score + 65;
+
+        case "SCOPED_CSS":
+            return score + 60;
+
+        case "SCOPED_XPATH":
+            return score + 55;
+
+        case "LABEL_XPATH":
+            return score + 45;
+
+        case "POSITION_XPATH":
+            return score + 10;
+
+        case "AI":
+            return score + 70;
+
+        default:
+            return score;
+    }
+}
+}

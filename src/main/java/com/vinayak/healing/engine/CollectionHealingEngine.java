@@ -1,5 +1,6 @@
 package com.vinayak.healing.engine;
 
+import com.vinayak.healing.analytics.HealingAnalytics;
 import com.vinayak.healing.dom.DomCandidateFinder;
 import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
@@ -33,6 +34,8 @@ public class CollectionHealingEngine {
 
             return List.of();
         }
+
+        long startTime = System.currentTimeMillis();
 
         System.out.println(
                 "\n========== COLLECTION HEALING ==========");
@@ -113,10 +116,14 @@ public class CollectionHealingEngine {
                         LocatorBuilder.build(
                                 candidate);
 
+                               
+
             } catch (Exception exception) {
 
                 continue;
             }
+
+
 
             if (candidateLocator == null) {
                 continue;
@@ -307,6 +314,13 @@ if (decision.decision()
         System.out.println(
                 "COLLECTION SCORE = "
                         + bestMatch.collectionScore);
+
+                     
+
+HealingAnalytics.deterministicHeal();
+
+HealingAnalytics.addHealingTime(
+        System.currentTimeMillis() - startTime);
 
         return bestMatch.elements;
     }

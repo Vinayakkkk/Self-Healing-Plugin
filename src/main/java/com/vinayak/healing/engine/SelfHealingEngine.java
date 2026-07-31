@@ -6,11 +6,12 @@ import com.vinayak.healing.ai.CandidatePromptBuilder;
 import com.vinayak.healing.decision.HealingDecision;
 import com.vinayak.healing.decision.HealingDecisionEngine;
 import com.vinayak.healing.ai.LocatorSuggestion;
-import com.vinayak.healing.builder.FailureContextBuilder;
+import com.vinayak.healing.builder.FailureContextFactory;
 import com.vinayak.healing.cache.LocatorCache;
 import com.vinayak.healing.repair.RepairReport;
+import org.openqa.selenium.NoSuchElementException;
 import com.vinayak.healing.validator.CachedLocatorValidator;
-import com.vinayak.healing.context.FallbackContextResolver;
+
 import com.vinayak.healing.dom.XPathFallbackGenerator;
 import com.vinayak.healing.filter.CandidateFilter;
 import com.vinayak.healing.logging.HealingLogger;
@@ -20,9 +21,13 @@ import com.vinayak.healing.pipeline.HealingPipeline;
 import com.vinayak.healing.pipeline.PipelineResult;
 import com.vinayak.healing.repair.SourceCodeRepairEngine;
 import com.vinayak.healing.report.HealingReportManager;
-import com.vinayak.healing.source.SourceCodeAnalyzer;
+import com.vinayak.healing.resolver.DuplicateResolver;
+
 import com.vinayak.healing.validator.CandidateValidator;
+import com.vinayak.healing.shadow.ShadowDomHealingEngine;
+import com.vinayak.healing.iframe.IframeHealingEngine;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -33,6 +38,7 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import java.util.concurrent.ConcurrentHashMap;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.SearchContext;
 
 
 public class SelfHealingEngine {
@@ -41,15 +47,20 @@ public class SelfHealingEngine {
         collectionHealingEngine =
         new CollectionHealingEngine();
 
+private final ShadowDomHealingEngine
+        shadowDomHealingEngine =
+        new ShadowDomHealingEngine();
+private final FailureContextFactory
+        failureContextFactory =
+        new FailureContextFactory();
+        private final IframeHealingEngine
+        iframeHealingEngine =
+        new IframeHealingEngine();
 
 
-private final FallbackContextResolver
-        fallbackContextResolver =
-        new FallbackContextResolver();
         private static final boolean DEBUG = false;
 
-        private final SourceCodeAnalyzer analyzer =
-        new SourceCodeAnalyzer();
+  
        private static final ThreadLocal<By>
         lastSuccessfulLocator =
                 new ThreadLocal<>();
@@ -62,6 +73,8 @@ private final FallbackContextResolver
 
         private final CandidateValidator candidateValidator =
         new CandidateValidator();
+        private final DuplicateResolver duplicateResolver =
+        new DuplicateResolver();
 
         private final HealingDecisionEngine healingDecisionEngine =
         new HealingDecisionEngine();
@@ -94,133 +107,18 @@ private final FallbackContextResolver
 
         waitForDomReady(driver);
 
-       
-
-        // ==========================
-        // DOM ANALYSIS
-        // ==========================
-
-   
-
-
-
-       
-
-        String pageObjectPath =
-        findPageObjectFromStackTrace();
-
-
-String variableName = "";
-String declaration = "";
-
-
-if(pageObjectPath != null) {
-
-    variableName =
-            analyzer.findVariableName(
-                    pageObjectPath,
-                    failedLocator.toString());
-
-                
-
-    declaration =
-            analyzer.findDeclaration(
-                    pageObjectPath,
-                    failedLocator.toString());
-
-                    
-}
-
-FailureContextBuilder builder =
-        new FailureContextBuilder();
-
 FailureContext context =
-        builder.build(
+        failureContextFactory.build(
                 driver,
-                null,
-                failedLocator.toString(),
-                variableName,
-                declaration);
+                failedLocator);
 
-                context.setPageObjectPath(pageObjectPath);
+String pageObjectPath =
+        context.getPageObjectPath();
 
-// ==========================================
-// FALLBACK CONTEXT RESOLUTION
-// ==========================================
+String variableName =
+        context.getVariableName();
 
-if (variableName == null
-        || variableName.isBlank()) {
 
-    HealingLogger.debug(
-            "PAGE OBJECT VARIABLE NOT AVAILABLE");
-
-    context =
-            fallbackContextResolver.enrich(
-                    context,
-                    failedLocator);
-
-    variableName =
-            context.getVariableName();
-}
-
-// ==========================================
-// FINAL CONTEXT SAFETY GATE
-// ==========================================
-
-boolean hasVariable =
-        context.getVariableName() != null
-                && !context.getVariableName().isBlank();
-
-boolean hasLocatorTextHint =
-        context.getLocatorTextHint() != null
-                && !context.getLocatorTextHint().isBlank();
-
-boolean hasExpectedLabel =
-        context.getExpectedLabel() != null
-                && !context.getExpectedLabel().isBlank();
-
-/*
- * Healing is allowed when we have at least one
- * meaningful semantic identity source.
- *
- * Page Object variable:
- *     myInfo
- *
- * Locator text:
- *     My Inffo
- *
- * Label:
- *     Employee Name
- */
-if (!hasVariable
-        && !hasLocatorTextHint
-        && !hasExpectedLabel) {
-
-   HealingLogger.warn(
-        "Healing skipped | "
-                + "Insufficient semantic identity for : "
-                + failedLocator);
-
-    return null;
-}
-
-if (variableName == null
-        || variableName.isBlank()) {
-
-   if (hasLocatorTextHint) {
-    variableName = context.getLocatorTextHint();
-
-    } else if (hasExpectedLabel) {
-
-        variableName =
-                context.getExpectedLabel();
-
-    } else {
-
-        variableName =
-                "DIRECT_LOCATOR";
-    }
-}
 
              
 
@@ -464,11 +362,18 @@ if (cached != null) {
                 cachedLocator,
                 context);
 
+                System.out.println("\n===== CACHE CONTEXT =====");
+System.out.println("Variable : " + context.getVariableName());
+System.out.println("Tag      : " + context.getExpectedTag());
+System.out.println("Intent   : " + context.getExpectedIntent());
+System.out.println("Action   : " + context.getFailedAction());
+
 if (validCachedLocator) {
 
     WebElement cachedElement =
-            driver.findElement(
-                    cachedLocator);
+        findElementWithShadowSupport(
+                driver,
+                cachedLocator);
 
             HealingLogger.debug(
                     "CACHE HIT | "
@@ -550,10 +455,59 @@ PipelineResult result =
         
 
 List<LocatorCandidate> candidates =
-        result.getCandidates();
+        new ArrayList<>(result.getCandidates());
 
-LocatorCandidate validatedCandidate =
-        result.getValidatedCandidate();
+List<LocatorCandidate> shadowCandidates =
+        shadowDomHealingEngine.findCandidates(
+                driver,
+                context);
+
+                System.out.println("\n===== SHADOW CANDIDATES =====");
+System.out.println("Count = " + shadowCandidates.size());
+
+for (LocatorCandidate c : shadowCandidates) {
+    System.out.println(
+        c.getLocatorType()
+        + "="
+        + c.getLocatorValue()
+        + " tag="
+        + c.getTagName());
+}
+
+if (!shadowCandidates.isEmpty()) {
+
+    HealingLogger.debug(
+            "Shadow candidates found : "
+                    + shadowCandidates.size());
+
+    candidates.addAll(shadowCandidates);
+}
+
+/*
+ * Validate AFTER merging all candidates.
+ */
+LocatorCandidate resolvedCandidate =
+        duplicateResolver.resolve(
+                context,
+                candidates);
+
+LocatorCandidate validatedCandidate = null;
+
+if (resolvedCandidate != null) {
+
+    validatedCandidate =
+            candidateValidator.validate(
+                    driver,
+                    List.of(resolvedCandidate),
+                    context);
+}
+
+        /*
+ * Normal DOM healing failed.
+ * Search inside Shadow DOM before
+ * trying XPath fallback or AI.
+ */
+
 
         if (validatedCandidate != null) {
 
@@ -687,7 +641,8 @@ HealingAnalytics.addHealingTime(
                 validatedCandidate);
 
 WebElement validatedElement =
-        driver.findElement(
+        findElementWithShadowSupport(
+                driver,
                 candidateLocator);
 
 By locator =
@@ -776,41 +731,48 @@ if (suggestion != null
     HealingLogger.debug(
             "DIRECT HEAL SUCCESS : " + locator);
 
-try {
+if (context.getPageObjectPath() != null
+        && !context.getPageObjectPath().isBlank()) {
 
-    RepairReport report =
-            sourceCodeRepairEngine.repair(
-                    context,
-                    suggestion);
+    try {
 
-    if (report.isRepairSuccessful()) {
+        RepairReport report =
+                sourceCodeRepairEngine.repair(
+                        context,
+                        suggestion);
 
-        HealingLogger.info(
-                "Page Object repaired : "
-                        + report.getPageObjectFile());
+        if (report.isRepairSuccessful()) {
 
-    } else {
+            HealingLogger.info(
+                    "Page Object repaired : "
+                            + report.getPageObjectFile());
+
+        } else {
+
+            HealingLogger.warn(
+                    "Source repair failed : "
+                            + report.getMessage());
+        }
+
+    } catch (Exception e) {
 
         HealingLogger.warn(
-                "Repair failed : "
-                        + report.getMessage());
+                "Source repair skipped : "
+                        + e.getMessage());
     }
 
-} catch (Exception e) {
+} else {
 
-    HealingLogger.warn(
-            "Source repair skipped : "
-                    + e.getMessage());
+    HealingLogger.debug(
+            "Skipping source repair: Page Object path not available.");
 }
 
- return driver.findElement(locator);
+ return findElementWithShadowSupport(
+        driver,
+        locator);
 }
 
-        // ==========================
-        // AI HEALING
-// ==========================
-// AI HEALING
-// ==========================
+
 
 if (candidates == null) {
     candidates = java.util.Collections.emptyList();
@@ -1170,19 +1132,20 @@ if (!valid) {
         }
 
 
-        LocatorCandidate aiCandidate =
-        CandidateConverter.convert(
-                suggestion);
-        // ==========================
-        // CACHE STORE
-        // ==========================
+LocatorCandidate aiCandidate =
+        filteredCandidates.stream()
+                .filter(c ->
+                        suggestion.getLocatorType()
+                                .equalsIgnoreCase(c.getLocatorType())
+                        &&
+                        suggestion.getLocatorValue()
+                                .equalsIgnoreCase(c.getLocatorValue()))
+                .findFirst()
+                .orElse(null);
 
-
-        System.out.println(
-                "\nAI Suggested : "
-                        + suggestion.getLocatorType()
-                        + "="
-                        + suggestion.getLocatorValue());
+if (aiCandidate == null) {
+    throw fail("AI selected candidate not found.");
+}
 
 LocatorCandidate validatedAiCandidate =
         candidateValidator.validate(
@@ -1209,7 +1172,9 @@ By healedLocator =
 lastSuccessfulLocator.set(healedLocator);
 
 WebElement element =
-        driver.findElement(healedLocator);
+        findElementWithShadowSupport(
+                driver,
+                healedLocator);
 
 suggestion.setConfidence(
         validatedAiCandidate.getFinalScore());
@@ -1240,129 +1205,154 @@ System.out.println(
         "Element healed successfully");
 
 
-try {
+if (context.getPageObjectPath() != null
+        && !context.getPageObjectPath().isBlank()) {
 
-    RepairReport report =
-            sourceCodeRepairEngine.repair(
-                    context,
-                    suggestion);
+    try {
 
-    if (report.isRepairSuccessful()) {
+        RepairReport report =
+                sourceCodeRepairEngine.repair(
+                        context,
+                        suggestion);
 
-        HealingLogger.info(
-                "Page Object repaired : "
-                        + report.getPageObjectFile());
+        if (report.isRepairSuccessful()) {
 
-    } else {
+            HealingLogger.info(
+                    "Page Object repaired : "
+                            + report.getPageObjectFile());
+
+        } else {
+
+            HealingLogger.warn(
+                    "Repair failed : "
+                            + report.getMessage());
+        }
+
+    } catch (Exception e) {
 
         HealingLogger.warn(
-                "Source repair failed : "
-                        + report.getMessage());
+                "Source repair skipped : "
+                        + e.getMessage());
     }
 
-} catch (Exception e) {
+} else {
 
-    HealingLogger.warn(
-            "Source repair skipped : "
-                    + e.getMessage());
+    HealingLogger.debug(
+            "Skipping source repair: Page Object path not available.");
 }
 
 return element;
         
     }
 
-    private void waitForDomReady(
-            WebDriver driver) {
+private void waitForDomReady(
+        WebDriver driver) {
 
-        WebDriverWait wait =
-                new WebDriverWait(
-                        driver,
-                        Duration.ofSeconds(20));
+    WebDriverWait wait =
+            new WebDriverWait(
+                    driver,
+                    Duration.ofSeconds(20));
 
-        // Page load complete
-        wait.until(webDriver ->
-                ((JavascriptExecutor) webDriver)
-                        .executeScript(
-                                "return document.readyState")
-                        .equals("complete"));
+    wait.until(webDriver ->
+            ((JavascriptExecutor) webDriver)
+                    .executeScript(
+                            "return document.readyState")
+                    .equals("complete"));
 
-        // Wait until Angular/React/Vue renders controls
-       wait.until(d ->
-        !d.findElements(
-                By.cssSelector(
-                        "input,button,select,textarea,a"))
-                .isEmpty());
+wait.until(webDriver -> {
+
+    JavascriptExecutor js =
+            (JavascriptExecutor) webDriver;
+
+    Long normalElements =
+            ((Number) js.executeScript(
+                    """
+                    return document.querySelectorAll(
+                    "input,button,select,textarea,a")
+                    .length;
+                    """))
+                    .longValue();
+
+    if (normalElements > 0) {
+        return true;
     }
 
-private String findPageObjectFromStackTrace() {
+    Long shadowElements =
+            ((Number) js.executeScript(
+                    """
+                    let count = 0;
 
-StackTraceElement[] stack =
-        Thread.currentThread().getStackTrace();
+                    function scan(root){
 
+                        root.querySelectorAll("*")
+                            .forEach(e=>{
 
+                                if(e.shadowRoot){
 
-    String projectRoot =
-            System.getProperty("user.dir");
+                                    count += e.shadowRoot
+                                            .querySelectorAll(
+                                            "input,button,select,textarea,a")
+                                            .length;
 
-            
+                                    scan(e.shadowRoot);
+                                }
+                            });
+                    }
 
-    String latestPageObject = null;
+                    scan(document);
 
-    for (StackTraceElement element : stack) {
+                    return count;
+                    """))
+                    .longValue();
 
-        String className = element.getClassName();
+    if (shadowElements > 0) {
+        return true;
+    }
 
-        
+    // ---------- IFRAME SUPPORT ----------
 
-        if (!(className.startsWith("pages.")
-        || className.contains(".pages."))) {
-    continue;
-}
-        
-        String fileName =
-                className.substring(
-                        className.lastIndexOf('.') + 1)
-                        + ".java";
+    try {
 
-        try {
+        webDriver.switchTo().defaultContent();
 
-            java.nio.file.Path root =
-                    java.nio.file.Paths.get(projectRoot);
+        List<WebElement> iframes =
+                webDriver.findElements(
+                        By.tagName("iframe"));
 
-            java.util.Optional<java.nio.file.Path> match =
-                    java.nio.file.Files.walk(root)
-                            .filter(path ->
-                                    path.getFileName()
-                                            .toString()
-                                            .equals(fileName))
-                            .findFirst();
+        for (int i = 0; i < iframes.size(); i++) {
 
-            if (match.isPresent()) {
+            webDriver.switchTo().defaultContent();
+            webDriver.switchTo().frame(i);
 
-                latestPageObject =
-                        match.get()
-                                .toAbsolutePath()
-                                .toString();
+            Long iframeElements =
+                    ((Number) js.executeScript(
+                            """
+                            return document.querySelectorAll(
+                            "input,button,select,textarea,a")
+                            .length;
+                            """))
+                            .longValue();
 
-                
+            if (iframeElements > 0) {
+
+                webDriver.switchTo().defaultContent();
+
+                return true;
             }
+        }
 
-       } catch (Exception e) {
+    } catch (Exception ignored) {
 
-    HealingLogger.error(
-            "Page Object lookup failed",
-            e);
-}
+    } finally {
+
+        webDriver.switchTo().defaultContent();
     }
 
-    if (latestPageObject == null) {
-
-        HealingLogger.debug(
-        "PAGE OBJECT NOT FOUND");
-    }
-
-    return latestPageObject;
+    return false;
+});
 }
+
+
 
 private String xpathLiteral(String value) {
 
@@ -1540,31 +1530,7 @@ private LocatorSuggestion buildSuggestionFromBy(
     return suggestion;
 }
 
-public String resolveVariableName(
-        By locator) {
 
-    try {
-
-        String pageObjectPath =
-                findPageObjectFromStackTrace();
-
-        if (pageObjectPath == null) {
-            return "";
-        }
-
-        return analyzer.findVariableName(
-                pageObjectPath,
-                locator.toString());
-
-    } catch (Exception e) {
-
-       HealingLogger.warn(
-        "Variable resolution failed : "
-                + e.getMessage());
-
-        return "";
-    }
-}
 public List<WebElement> healCollection(
         WebDriver driver,
         By failedLocator) {
@@ -1573,53 +1539,16 @@ public List<WebElement> healCollection(
         return List.of();
     }
 
-    System.out.println(
-            "\n========== PREPARING COLLECTION HEALING ==========");
+FailureContext context =
+        failureContextFactory.build(
+                driver,
+                failedLocator);
 
-    // Same source-code analysis used by normal healing
-    String pageObjectPath =
-            findPageObjectFromStackTrace();
 
-    String variableName = "";
-    String declaration = "";
 
-    if (pageObjectPath != null) {
+String variableName =
+        context.getVariableName();
 
-        variableName =
-                analyzer.findVariableName(
-                        pageObjectPath,
-                        failedLocator.toString());
-
-        declaration =
-                analyzer.findDeclaration(
-                        pageObjectPath,
-                        failedLocator.toString());
-    }
-
-  HealingLogger.debug(
-            "COLLECTION PAGE OBJECT = "
-                    + pageObjectPath);
-
-    HealingLogger.debug(
-            "COLLECTION VARIABLE = "
-                    + variableName);
-
-    HealingLogger.debug(
-            "COLLECTION DECLARATION = "
-                    + declaration);
-
-    FailureContextBuilder builder =
-            new FailureContextBuilder();
-
-    FailureContext context =
-            builder.build(
-                    driver,
-                    null,
-                    failedLocator.toString(),
-                    variableName,
-                    declaration);
-
-                    context.setPageObjectPath(pageObjectPath);
 
                     if (variableName == null
         || variableName.isBlank()) {
@@ -1636,6 +1565,103 @@ public List<WebElement> healCollection(
             driver,
             failedLocator,
             context);
+}
+private WebElement findElementWithShadowSupport(
+        WebDriver driver,
+        By locator) {
+
+    List<WebElement> elements =
+            driver.findElements(locator);
+
+    if (elements.size() == 1) {
+        return elements.get(0);
+    }
+
+    JavascriptExecutor js =
+            (JavascriptExecutor) driver;
+
+    List<WebElement> hosts =
+            driver.findElements(By.cssSelector("*"));
+
+    for (WebElement host : hosts) {
+
+        try {
+
+            Object hasShadow =
+                    js.executeScript(
+                            "return arguments[0].shadowRoot != null;",
+                            host);
+
+            if (!(hasShadow instanceof Boolean)
+                    || !((Boolean) hasShadow)) {
+                continue;
+            }
+
+            SearchContext shadowRoot =
+        host.getShadowRoot();
+
+By shadowLocator = locator;
+
+String locatorString = locator.toString();
+
+if (locatorString.startsWith("By.id: ")) {
+
+    shadowLocator = By.cssSelector(
+            "#" + locatorString.replace("By.id: ", ""));
+
+} else if (locatorString.startsWith("By.name: ")) {
+
+    String value =
+            locatorString.replace("By.name: ", "");
+
+    shadowLocator =
+            By.cssSelector(
+                    "[name='" + value + "']");
+
+} else if (locatorString.startsWith("By.className: ")) {
+
+    shadowLocator =
+            By.cssSelector(
+                    "." + locatorString.replace("By.className: ", ""));
+}
+
+/*
+ * ChromeDriver does not support XPath on ShadowRoot.
+ */
+if (locatorString.startsWith("By.xpath:")) {
+    continue;
+}
+
+List<WebElement> shadowElements =
+        shadowRoot.findElements(shadowLocator);
+
+if (shadowElements.size() == 1) {
+    return shadowElements.get(0);
+}
+
+        } catch (Exception ignored) {
+        }
+    }
+
+    /*
+ * Shadow DOM search failed.
+ * Try iframe search before giving up.
+ */
+WebElement iframeElement =
+        iframeHealingEngine.findElement(
+                driver,
+                locator);
+
+if (iframeElement != null) {
+
+    HealingLogger.debug(
+            "Element found inside iframe.");
+
+    return iframeElement;
+}
+
+throw new NoSuchElementException(
+        "Unable to locate " + locator);
 }
 
 }

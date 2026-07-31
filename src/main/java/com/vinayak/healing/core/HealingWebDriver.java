@@ -1,16 +1,16 @@
 package com.vinayak.healing.core;
 
 import com.vinayak.healing.analytics.HealingAnalytics;
+import com.vinayak.healing.builder.FailureContextFactory;
 import com.vinayak.healing.cache.LocatorCache;
 import com.vinayak.healing.config.HealingConfig;
 import com.vinayak.healing.engine.SelfHealingEngine;
 import com.vinayak.healing.execution.ExecutionTracker;
 import com.vinayak.healing.logging.HealingLogger;
+import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.validator.SuccessfulLocatorValidator;
-
 import java.util.List;
 import java.util.Set;
-
 import org.openqa.selenium.By;
 import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.StaleElementReferenceException;
@@ -24,12 +24,16 @@ private final WebDriver driver;
 
 private final HealingConfig config;
 
+private final FailureContextFactory failureContextFactory =
+        new FailureContextFactory();
+
 private final SelfHealingEngine healingEngine =
         new SelfHealingEngine();
 
         private final SuccessfulLocatorValidator
         successfulLocatorValidator =
         new SuccessfulLocatorValidator();
+
 
 public HealingWebDriver(
         WebDriver driver,
@@ -55,16 +59,18 @@ public WebElement findElement(By locator) {
          * The locator exists, but it may point to
          * the wrong semantic element.
          */
-        String variableName =
-                healingEngine.resolveVariableName(
-                        locator);
 
-        boolean suspicious =
-                successfulLocatorValidator
-                        .isSuspicious(
-                                variableName,
-                                element);
+FailureContext context =
+        failureContextFactory.build(
+                driver,
+                locator);
 
+boolean suspicious =
+        successfulLocatorValidator
+                .isSuspicious(
+                        context,
+                        element);
+                        System.out.println("Suspicious = " + suspicious);
         if (suspicious) {
 
             HealingLogger.debug(
@@ -207,62 +213,62 @@ HealingLogger.debug(
 @Override
 public List<WebElement> findElements(By locator) {
 
-    List<WebElement> elements =
-            driver.findElements(locator);
+   List<WebElement> elements =
+        driver.findElements(locator);
 
-    if (!elements.isEmpty()) {
-        return elements;
-    }
+// Negative conditions must preserve empty-list behavior.
+if (isNegativeWaitLookup()) {
 
-    // Negative conditions must preserve empty-list behavior.
-    if (isNegativeWaitLookup()) {
-
-        HealingLogger.debug(
-                "NEGATIVE WAIT COLLECTION LOOKUP | "
-                        + locator);
-
-       HealingLogger.debug(
-                "COLLECTION HEALING SKIPPED");
-
-        return elements;
-    }
-
-    // Normal collection lookup can attempt healing.
     HealingLogger.debug(
-            "COLLECTION LOCATOR FAILED | "
+            "NEGATIVE WAIT COLLECTION LOOKUP | "
                     + locator);
 
     HealingLogger.debug(
-            "ATTEMPTING COLLECTION HEALING");
-
-    try {
-
-        List<WebElement> healedElements =
-                healingEngine.healCollection(
-                        driver,
-                        locator);
-
-        if (healedElements != null
-                && !healedElements.isEmpty()) {
-
-            HealingLogger.debug(
-                    "COLLECTION HEALED | "
-                            + locator
-                            + " -> "
-                            + healedElements.size()
-                            + " elements");
-
-            return healedElements;
-        }
-
-    } catch (Exception exception) {
-
-        HealingLogger.debug(
-                "COLLECTION HEALING FAILED | "
-                        + exception.getMessage());
-    }
+            "COLLECTION HEALING SKIPPED");
 
     return elements;
+}
+
+/*
+ * Always attempt collection healing.
+ *
+ * This allows the framework to recover
+ * partially broken collections where
+ * Selenium still finds some elements.
+ */
+try {
+
+    List<WebElement> healedElements =
+            healingEngine.healCollection(
+                    driver,
+                    locator);
+
+    /*
+     * Accept healed collection only if it
+     * safely improves the original result.
+     */
+    if (healedElements != null
+            && healedElements.size() > elements.size()) {
+
+        HealingLogger.debug(
+                "COLLECTION IMPROVED | "
+                        + elements.size()
+                        + " -> "
+                        + healedElements.size());
+
+        return healedElements;
+    }
+
+} catch (Exception exception) {
+
+    HealingLogger.debug(
+            "COLLECTION HEALING FAILED | "
+                    + exception.getMessage());
+}
+
+return elements;
+
+
 }
 
 /*
@@ -384,12 +390,7 @@ public HealingConfig getConfig() {
 public List<WebElement> findElementsWithHealing(
         By locator) {
 
-    List<WebElement> elements =
-            driver.findElements(locator);
-
-    if (!elements.isEmpty()) {
-        return elements;
-    }
+    
 
     HealingLogger.debug(
             "Collection locator failed : "
