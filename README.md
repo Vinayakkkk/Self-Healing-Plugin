@@ -1,6 +1,6 @@
 # 🚀 Self-Healing Plugin
 
-An intelligent Selenium WebDriver plugin that automatically heals broken locators at runtime using DOM analysis, candidate ranking, validation, caching, and AI-assisted decision making.
+An intelligent Selenium WebDriver plugin that automatically heals broken locators at runtime using DOM analysis, semantic context, candidate ranking, validation, capability analysis, caching, recovery, and AI-assisted decision making.
 
 ---
 
@@ -10,7 +10,9 @@ Modern web applications frequently change their UI, causing Selenium tests to fa
 
 **Self-Healing Plugin** minimizes test maintenance by automatically identifying alternative locators and recovering from broken elements without requiring manual updates.
 
-The framework combines deterministic algorithms with AI-assisted healing to improve reliability and reduce flaky test failures.
+The framework combines deterministic algorithms with execution context, semantic analysis, DOM intelligence, candidate ranking, validation, capability analysis, locator stability, recovery mechanisms, and optional AI-assisted healing.
+
+The long-term goal is to evolve the framework into an **Automation Intelligence Engine** that understands not only which locator failed, but also what the automation was trying to accomplish.
 
 ---
 
@@ -24,11 +26,17 @@ The framework combines deterministic algorithms with AI-assisted healing to impr
 - ✅ Runtime Locator Cache
 - ✅ Persistent Locator Cache
 - ✅ Failure Context Generation
+- ✅ Execution Context Tracking
+- ✅ Execution Recording
 - ✅ DOM Candidate Discovery
 - ✅ Candidate Ranking
 - ✅ Candidate Filtering
 - ✅ Candidate Validation
+- ✅ Expected Context Resolution
+- ✅ Semantic Evidence Analysis
 - ✅ Expected Element Verification
+- ✅ Expected Outcome Verification
+- ✅ Element Capability Analysis
 - ✅ Healing Decision Engine
 - ✅ XPath Fallback Generation
 - ✅ Unique Locator Generation
@@ -36,146 +44,202 @@ The framework combines deterministic algorithms with AI-assisted healing to impr
 - ✅ Source Code Analysis
 - ✅ Variable Analysis
 - ✅ Locator Analysis
-- ✅ Dynamic Pattern Analysis
+- ✅ Dynamic Attribute Detection
+- ✅ Locator Stability Analysis
 - ✅ Shadow DOM Healing
 - ✅ iFrame Healing
+- ✅ Action Recovery
+- ✅ DOM Recovery
 - ✅ Healing Analytics
 - ✅ JSON Healing Reports
-- ✅ Execution Context Tracking
 - ✅ Logging Framework
 ---
 
 # 🏗 Architecture
 
 ```
-                              Selenium Test
-                                 │
-                                 ▼
-                        HealingWebDriver
-                                 │
-                                 ▼
-                        SelfHealingEngine
-                                 │
-                                 ▼
-                     FailureContextFactory
-                                 │
-                                 ▼
-                         FailureContext
-                                 │
-                     ┌───────────┴───────────┐
-                     ▼                       ▼
-             Runtime Locator Cache      Healing Pipeline
-                     │                       │
-         Cache Hit?──┘                       ▼
-                 │                  DOM Candidate Finder
+                                                       Selenium Test
+                             │
+                             ▼
+                    HealingWebDriver
+                             │
+                             ▼
+                    HealingWebElement
+                             │
+                             ▼
+                    SelfHealingEngine
+                             │
+                             ▼
+                 FailureContextBuilder
+                             │
+                             ▼
+                     FailureContext
+                             │
+                 ┌───────────┴───────────┐
+                 ▼                       ▼
+          Execution Context       Expected Context
                  │                       │
-                 │                       ▼
-                 │              Candidate Ranking
-                 │                       │
-                 │                       ▼
-                 │             Candidate Filtering
-                 │                       │
-                 │                       ▼
-                 │          Expected Element Verification
-                 │                       │
-                 │                       ▼
-                 │             Candidate Validation
-                 │                       │
-                 │                       ▼
-                 │          Healing Decision Engine
-                 │              ┌────────┴─────────┐
-                 │              ▼                  ▼
-                 │      Deterministic Healing   AI Healing
-                 │              │                  │
-                 └──────────────┴──────────────────┘
-                                │
-                                ▼
-                     Unique Locator Generation
-                                │
-                                ▼
-                    Duplicate Element Resolution
-                                │
-                                ▼
-                    Browser Context Recovery
-                  (Shadow DOM / iFrame Healing)
-                                │
-                                ▼
-                     Locator Cache Update
-                                │
-                                ▼
-                    Source Code Repair (Optional)
-                                │
-                                ▼
-                      Healing Analytics & Report
-                                │
-                                ▼
-                     Return Healed WebElement
+                 └───────────┬───────────┘
+                             ▼
+                    Healing Decision Engine
+                             │
+                 ┌───────────┴───────────┐
+                 ▼                       ▼
+          Capability Analysis      Healing Pipeline
+                                         │
+                                         ▼
+                                DOM Candidate Finder
+                                         │
+                                         ▼
+                                  Candidate Ranking
+                                         │
+                                         ▼
+                                 Candidate Filtering
+                                         │
+                                         ▼
+                              Candidate Validation
+                                         │
+                                         ▼
+                              Expected Verification
+                                         │
+                          ┌──────────────┴──────────────┐
+                          ▼                             ▼
+                Deterministic Healing              AI Healing
+                          │                             │
+                          └──────────────┬──────────────┘
+                                         ▼
+                              Duplicate Resolution
+                                         │
+                                         ▼
+                              Unique Locator Generation
+                                         │
+                                         ▼
+                              Browser Context Recovery
+                            (Shadow DOM / iFrame)
+                                         │
+                                         ▼
+                                  Locator Cache
+                                         │
+                                         ▼
+                               Source Code Repair
+                                         │
+                                         ▼
+                              Expected Outcome Check
+                                         │
+                                         ▼
+                              Healing Analytics
+                                         │
+                                         ▼
+                              Return Healed Element
 ```
 
 ---
 
 # 🔄 Healing Workflow
 
-1. Selenium fails to locate an element.
-2. FailureContext is generated.
-3. Runtime cache is checked.
-4. DOM is analyzed.
-5. Candidate elements are collected.
-6. Candidates are ranked.
-7. Invalid candidates are filtered.
-8. Best candidate is validated.
-9. HealingDecisionEngine determines whether healing is safe.
-10. If deterministic healing fails, AI suggests the best locator.
-11. Validated locator is cached.
-12. Test execution continues.
-
+1. Selenium operation is executed.
+2. Element lookup or action fails.
+3. FailureContext is generated.
+4. Execution context is analyzed.
+5. Expected context is resolved.
+6. Runtime cache is checked.
+7. DOM is analyzed.
+8. Candidate elements are collected.
+9. Candidate attributes and stability are analyzed.
+10. Candidates are ranked.
+11. Invalid candidates are filtered.
+12. Element capability is evaluated.
+13. Candidate is validated against the browser.
+14. HealingDecisionEngine determines whether healing is safe.
+15. Deterministic healing is attempted.
+16. If deterministic healing fails, AI suggests a locator.
+17. AI suggestions are validated before use.
+18. Duplicate candidates are resolved.
+19. A unique locator can be generated when required.
+20. Successful locators are cached.
+21. Source code can optionally be repaired.
+22. Expected outcome is verified.
+23. Healing analytics are recorded.
+24. Test execution continues.
 ---
 
 # 📂 Project Structure
 
 ```
 src
- ├── main
- │    ├── ai
- │    ├── analytics
- │    ├── analyzer
- │    ├── builder
- │    ├── cache
- │    ├── config
- │    ├── context
- │    ├── core
- │    ├── decision
- │    ├── dom
- │    ├── engine
- │    ├── execution
- │    ├── extractor
- │    ├── factory
- │    ├── filter
- │    ├── intent
- │    ├── logging
- │    ├── metrics
- │    ├── model
- │    ├── pipeline
- │    ├── policy
- │    ├── ranking
- │    ├── report
- │    ├── source
- │    ├── util
- │    └── validator
+├── main
+│ ├── ai
+│ ├── analysis
+│ ├── analyzer
+│ ├── builder
+│ ├── cache
+│ ├── capability
+│ ├── config
+│ ├── context
+│ ├── core
+│ ├── decision
+│ ├── dom
+│ ├── dynamic
+│ ├── engine
+│ ├── execution
+│ ├── extractor
+│ ├── expected
+│ │ ├── provider
+│ │ └── verifier
+│ ├── filter
+│ ├── generator
+│ ├── intent
+│ ├── logging
+│ ├── metrics
+│ ├── model
+│ ├── outcome
+│ │ ├── decision
+│ │ ├── engine
+│ │ ├── model
+│ │ ├── selector
+│ │ └── verifier
+│ ├── pipeline
+│ ├── policy
+│ ├── ranking
+│ ├── recovery
+│ ├── repair
+│ ├── report
+│ ├── resolver
+│ ├── shadow
+│ ├── util
+│ ├── validator
+│ └── verification
 ```
 
 ---
 
 # ⚙ Core Components
-
-| Component               | Description                                  |
+| Component | Description |
 | ----------------------- | -------------------------------------------- |
-| UniqueLocatorGenerator  | Generates unique healing locators            |
-| DuplicateResolver       | Resolves duplicate candidate elements        |
-| ExpectedElementVerifier | Verifies healed element matches expectations |
-| ShadowDomHealingEngine  | Handles Shadow DOM traversal and healing     |
-| IframeHealingEngine     | Handles iFrame detection and recovery        |
-| PageObjectResolver      | Locates Page Object source files for repair  |
+| HealingWebDriver | Main Selenium WebDriver integration |
+| HealingWebElement | Healing-aware WebElement wrapper |
+| SelfHealingEngine | Main healing orchestration engine |
+| FailureContextBuilder | Builds complete failure context |
+| ExecutionAnalyzer | Analyzes previous execution flow |
+| ExecutionRecorder | Records execution steps |
+| ExpectedContextManager | Resolves expected element context |
+| DomCandidateFinder | Discovers DOM candidates |
+| CandidateRanker | Ranks possible replacement elements |
+| CandidateFilter | Removes unsuitable candidates |
+| CandidateValidator | Validates candidates in the browser |
+| ActionCapabilityResolver | Determines element/action capability |
+| CapabilityValidator | Validates action capability |
+| DynamicAttributeDetector | Detects dynamic locator patterns |
+| ContextAwareLocatorGenerator | Generates context-aware locators |
+| UniqueLocatorGenerator | Generates unique healing locators |
+| DuplicateResolver | Resolves duplicate candidate elements |
+| HealingDecisionEngine | Determines whether healing is safe |
+| ActionRecoveryEngine | Performs action recovery |
+| ShadowDomHealingEngine | Handles Shadow DOM healing |
+| ExpectedOutcomeEngine | Determines expected post-action outcome |
+| ExpectedElementVerifier | Verifies expected element behavior |
+| SourceCodeRepairEngine | Performs source code repair |
+| HealingReportManager | Generates healing reports |
 
 
 ---
@@ -231,12 +295,15 @@ healingDriver.get("https://example.com");
 
 The framework generates healing reports including:
 
-- Failed locator
-- Healed locator
-- Confidence score
-- Healing type
-- Timestamp
-- Healing statistics
+-Failed locator
+-Healed locator
+-Expected intent
+-Confidence score
+-Candidate score
+-Healing type
+-Healing source
+-Timestamp
+-Healing statistics
 
 Example:
 
@@ -253,25 +320,44 @@ Example:
 
 # 📈 Current Capabilities
 
-| Feature                   | Status |
-| ------------------------- | :----: |
-| Runtime Healing           |    ✅   |
-| AI Healing                |    ✅   |
-| Single Element Healing    |    ✅   |
-| Collection Healing        |    ✅   |
-| Duplicate Resolution      |    ✅   |
-| Shadow DOM Healing        |    ✅   |
-| iFrame Healing            |    ✅   |
-| DOM Analysis              |    ✅   |
-| Candidate Ranking         |    ✅   |
-| Candidate Validation      |    ✅   |
-| Runtime Cache             |    ✅   |
-| Persistent Cache          |    ✅   |
-| XPath Fallback            |    ✅   |
-| Unique Locator Generation |    ✅   |
-| Source Code Repair        |    ✅   |
-| Healing Analytics         |    ✅   |
-| JSON Reports              |    ✅   |
+| Feature | Status |
+| ------------------------------- | :----: |
+| Runtime Self-Healing | ✅ |
+| Single Element Healing | ✅ |
+| Collection Healing | ✅ |
+| Deterministic Healing | ✅ |
+| AI-Assisted Healing | ✅ |
+| Runtime Locator Cache | ✅ |
+| Persistent Locator Cache | ✅ |
+| Failure Context Generation | ✅ |
+| Execution Context Tracking | ✅ |
+| Execution Recording | ✅ |
+| Variable Analysis | ✅ |
+| Locator Analysis | ✅ |
+| DOM Candidate Discovery | ✅ |
+| Candidate Filtering | ✅ |
+| Candidate Ranking | ✅ |
+| Candidate Validation | ✅ |
+| Semantic Evidence Analysis | ✅ |
+| Expected Context Resolution | ✅ |
+| Expected Element Verification | ✅ |
+| Expected Outcome Verification | ✅ |
+| Element Capability Analysis | ✅ |
+| Dynamic Attribute Detection | ✅ |
+| Locator Stability Analysis | ✅ |
+| Duplicate Element Resolution | ✅ |
+| Unique Locator Generation | ✅ |
+| XPath Fallback Generation | ✅ |
+| Action Recovery | ✅ |
+| DOM Recovery | ✅ |
+| Shadow DOM Healing | ✅ |
+| iFrame Healing | ✅ |
+| Healing Decision Engine | ✅ |
+| Source Code Analysis | ✅ |
+| Source Code Repair | ✅ |
+| Healing Analytics | ✅ |
+| JSON Healing Reports | ✅ |
+| Healing Logging | ✅ |
 
 
 ---
@@ -290,17 +376,35 @@ Example:
 - Analytics & Reporting
 
 ### 🚧 Phase 2 (In Progress)
-- Runtime Healing Engine
-  - StaleElementReferenceException Recovery
-  - ElementClickInterceptedException Recovery
-  - ElementNotInteractableException Recovery
-  - Smart Retry Engine
+- Runtime Self-Healing
+- Execution Context
+- Expected Context
+- Semantic Evidence
+- Capability Engine
+- DOM Intelligence
+- Candidate Generation
+- Candidate Filtering
+- Candidate Ranking Foundation
+- Candidate Validation
+- Dynamic Attribute Detection
+- Locator Stability Analysis
+- Duplicate Resolution
+- Unique Locator Generation
+- Action Recovery
+- Shadow DOM Healing
+- iFrame Healing
+- Expected Outcome Verification
+- Source Code Repair
+- Runtime & Persistent Cache
+- Healing Analytics & Reporting
 
 ### 🔮 Future Enhancements
 - Smart Synchronization Engine
-- AI Root Cause Analysis
-- Self-Learning Engine
-- Healing Dashboard
+- Advanced AI Root Cause Analysis
+- Adaptive Candidate Ranking
+- Self-Learning Locator Selection
+- Enterprise Healing Dashboard
+- Advanced Healing Analytics
 - Performance Optimization
 - Multi-Browser Optimization
 
@@ -342,4 +446,4 @@ It helps others discover the project and motivates further development.
 
 ## Current Version
 
-**v1.0-locator-healing**
+**v1.1.0 — Automation Intelligence Foundation**
