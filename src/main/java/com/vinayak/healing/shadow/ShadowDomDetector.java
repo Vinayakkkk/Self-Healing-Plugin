@@ -37,7 +37,7 @@ public final class ShadowDomDetector {
                     }
                 }
 
-                scan(document);
+                scan(document.documentElement);
 
                 return hosts;
                 """;

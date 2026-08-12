@@ -1,6 +1,7 @@
 package com.vinayak.healing.shadow;
 
 import com.vinayak.healing.dom.DomCandidateFinder;
+import com.vinayak.healing.logging.HealingLogger;
 import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
 import org.openqa.selenium.JavascriptExecutor;
@@ -21,7 +22,9 @@ public final class ShadowDomHealingEngine {
             WebDriver driver,
             FailureContext context) {
 
-                System.out.println("===== ENTERED SHADOW DOM HEALING =====");
+               if (HealingLogger.isDebugEnabled()) {
+    System.out.println("===== ENTERED SHADOW DOM HEALING =====");
+}
 
         if (!ShadowDomDetector.hasShadowDom(driver)) {
             return Collections.emptyList();
@@ -49,8 +52,9 @@ public final class ShadowDomHealingEngine {
                         (String) js.executeScript(
                                 "return arguments[0].shadowRoot.innerHTML;",
                                 host);
-
+if (HealingLogger.isDebugEnabled()) {
                                 System.out.println("\n===== SHADOW HTML =====");
+}
 System.out.println(shadowHtml);
 System.out.println("=======================\n");
 

@@ -1,13 +1,32 @@
 package com.vinayak.healing.validator;
 
 import com.vinayak.healing.analytics.HealingAnalytics;
+import com.vinayak.healing.capability.ActionCapabilityResolver;
+import com.vinayak.healing.capability.CapabilityValidator;
+import com.vinayak.healing.capability.ElementCapability;
+import com.vinayak.healing.context.DomContextExtractor;
+import com.vinayak.healing.decision.SemanticEvidence;
+import com.vinayak.healing.decision.SemanticEvidenceEvaluator;
 import com.vinayak.healing.engine.LocatorBuilder;
 import com.vinayak.healing.intent.ElementIntent;
 import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
+import com.vinayak.healing.shadow.ShadowDomDetector;
+
+import com.vinayak.healing.expected.ExpectedContext;
+import com.vinayak.healing.expected.ExpectedContextResolver;
+import com.vinayak.healing.expected.provider.BusinessEvidenceProvider;
+import com.vinayak.healing.expected.provider.DomEvidenceProvider;
+import com.vinayak.healing.expected.provider.ExecutionEvidenceProvider;
+import com.vinayak.healing.expected.provider.LocatorEvidenceProvider;
+import com.vinayak.healing.expected.provider.NavigationEvidenceProvider;
+import com.vinayak.healing.expected.provider.VariableEvidenceProvider;
+import com.vinayak.healing.expected.ExpectedEvidence;
+
 import org.openqa.selenium.*;
 import com.vinayak.healing.execution.ExecutionAction;
 import com.vinayak.healing.iframe.IframeHealingEngine;
+import com.vinayak.healing.expected.verifier.ExpectedElementVerifier;
 
 
 import java.util.List;
@@ -16,9 +35,56 @@ public class CandidateValidator {
 
         private static final double MIN_HEAL_SCORE = 1.0;
 
+        private final ExpectedElementVerifier expectedElementVerifier =
+        new ExpectedElementVerifier();
+
         private final IframeHealingEngine
         iframeHealingEngine =
         new IframeHealingEngine();
+
+        private final DomContextExtractor
+        domContextExtractor =
+        new DomContextExtractor();
+
+        private final VariableEvidenceProvider
+        variableEvidenceProvider =
+        new VariableEvidenceProvider();
+
+private final LocatorEvidenceProvider
+        locatorEvidenceProvider =
+        new LocatorEvidenceProvider();
+
+private final ExecutionEvidenceProvider
+        executionEvidenceProvider =
+        new ExecutionEvidenceProvider();
+
+private final DomEvidenceProvider
+        domEvidenceProvider =
+        new DomEvidenceProvider();
+
+private final NavigationEvidenceProvider
+        navigationEvidenceProvider =
+        new NavigationEvidenceProvider();
+
+private final BusinessEvidenceProvider
+        businessEvidenceProvider =
+        new BusinessEvidenceProvider();
+
+private final ExpectedContextResolver
+        expectedContextResolver =
+        new ExpectedContextResolver();
+
+        private final ActionCapabilityResolver
+        actionCapabilityResolver =
+        new ActionCapabilityResolver();
+
+private final CapabilityValidator
+        capabilityValidator =
+        new CapabilityValidator();
+
+        private final SemanticEvidenceEvaluator
+        semanticEvidenceEvaluator =
+        new SemanticEvidenceEvaluator();
 
    public LocatorCandidate validate(
         WebDriver driver,
@@ -32,103 +98,396 @@ public class CandidateValidator {
             return null;
         }
 
+        List<ExpectedEvidence> evidences =
+        new java.util.ArrayList<>();
+
+evidences.addAll(
+        variableEvidenceProvider.collect(context));
+
+evidences.addAll(
+        locatorEvidenceProvider.collect(context));
+
+// evidences.addAll(
+//         executionEvidenceProvider.collect(
+//                 context,
+//                 ExecutionManager.getContext()));
+
+evidences.addAll(
+        domEvidenceProvider.collect(context));
+
+// evidences.addAll(
+//         navigationEvidenceProvider.collect(
+//                 context,
+//                 ExecutionManager.getContext()));
+
+evidences.addAll(
+        businessEvidenceProvider.collect(context));
+
+ExpectedContext expectedContext =
+        expectedContextResolver.resolve(
+                evidences,
+                context.getExpectedIntent());
+
         LocatorCandidate bestCandidate = null;
 
 double bestScore = Double.NEGATIVE_INFINITY;
 
 for (LocatorCandidate candidate : candidates) {
 
+    if (!isCompatibleWithExpectedIntent(candidate, context)) {
 
+        System.out.println(
+                "FAILED: isCompatibleWithExpectedIntent -> "
+                        + candidate.getLocatorType()
+                        + "="
+                        + candidate.getLocatorValue());
 
-if (!isCompatibleWithExpectedIntent(candidate, context)) {
-
-    System.out.println(
-            "FAILED: isCompatibleWithExpectedIntent -> "
-            + candidate.getLocatorType()
-            + "="
-            + candidate.getLocatorValue());
-
-    continue;
-}
-
-try {
-
-    By locator =
-            LocatorBuilder.build(candidate);
-
-    WebElement element =
-            findSingleElement(
-                    driver,
-                    locator);
-
-    if (element == null) {
-
-         System.out.println(
-            "FAILED: element == null -> "
-            + candidate.getLocatorType()
-            + "="
-            + candidate.getLocatorValue());
         continue;
     }
 
-if (!validateDisplayed(element)) {
-    System.out.println("FAILED: validateDisplayed");
-    continue;
+    try {
+
+        By locator =
+                LocatorBuilder.build(candidate);
+
+        WebElement element =
+                findSingleElement(
+                        driver,
+                        locator);
+
+        if (element == null) {
+
+            System.out.println(
+                    "FAILED: element == null -> "
+                            + candidate.getLocatorType()
+                            + "="
+                            + candidate.getLocatorValue());
+
+            continue;
+        }
+
+        /*
+         * ==========================================
+         * HARD ACTION CAPABILITY GATE
+         * ==========================================
+         */
+
+        if (!validateActionCompatibility(
+                element,
+                context)) {
+
+            System.out.println(
+                    "FAILED: HARD ACTION CAPABILITY GATE -> "
+                            + candidate.getLocatorType()
+                            + "="
+                            + candidate.getLocatorValue()
+                            + " | tag="
+                            + element.getTagName()
+                            + " | action="
+                            + context.getFailedAction());
+
+            continue;
+        }
+
+        /*
+         * ==========================================
+         * DISPLAYED
+         * ==========================================
+         */
+
+        if (!validateDisplayed(element)) {
+
+            System.out.println(
+                    "FAILED: validateDisplayed");
+
+            continue;
+        }
+
+        /*
+         * ==========================================
+         * ENABLED
+         * ==========================================
+         */
+
+        if (!validateEnabled(element)) {
+
+            System.out.println(
+                    "FAILED: validateEnabled");
+
+            continue;
+        }
+
+        /*
+         * ==========================================
+         * INTENT
+         * ==========================================
+         */
+
+        if (!validateIntent(
+                element,
+                candidate,
+                expectedContext)) {
+
+            System.out.println(
+                    "FAILED: validateIntent");
+
+            continue;
+        }
+
+        /*
+         * ==========================================
+         * FIELD LABEL
+         * ==========================================
+         */
+
+        if (!validateFieldLabel(
+                candidate,
+                expectedContext)) {
+
+            System.out.println(
+                    "FAILED: validateFieldLabel");
+
+            continue;
+        }
+
+        /*
+         * ==========================================
+         * EXPECTED TEXT
+         * ==========================================
+         */
+
+        if (!validateExpectedText(
+                element,
+                context)) {
+
+            System.out.println(
+                    "FAILED: validateExpectedText");
+
+            continue;
+        }
+
+        /*
+         * ==========================================
+         * TAG
+         * ==========================================
+         */
+
+        if (!validateTag(
+                element,
+                candidate)) {
+
+            System.out.println(
+                    "FAILED: validateTag");
+
+            continue;
+        }
+
+        /*
+         * ==========================================
+         * LOCATOR ATTRIBUTE
+         * ==========================================
+         */
+
+        if (!validateLocatorAttribute(
+                element,
+                candidate)) {
+
+            System.out.println(
+                    "FAILED: validateLocatorAttribute");
+
+            continue;
+        }
+
+        /*
+         * ==========================================
+         * EXPECTED ELEMENT VERIFIER
+         * ==========================================
+         */
+
+        if (!expectedElementVerifier.verify(
+                element,
+                candidate,
+                context)) {
+
+            System.out.println(
+                    "FAILED: ExpectedElementVerifier");
+
+            continue;
+        }
+
+        /*
+         * ==========================================
+         * SEMANTIC SAFETY GATE
+         * ==========================================
+         */
+
+        SemanticEvidence semanticEvidence =
+                semanticEvidenceEvaluator.evaluate(
+                        candidate,
+                        context);
+
+                        boolean strongIdentity =
+        hasStrongSemanticEvidence(
+                candidate,
+                context);
+
+        System.out.println(
+                "===== SEMANTIC EVIDENCE =====");
+
+        System.out.println(
+                semanticEvidence);
+
+        System.out.println(
+                "=============================");
+
+
+
+
+
+        /*
+         * ==========================================
+         * FINAL SCORE
+         * ==========================================
+         */
+
+/*
+ * ==========================================
+ * FINAL SCORE + SEMANTIC PRIORITY
+ * ==========================================
+ */
+
+double finalScore =
+        candidate.getFinalScore();
+
+/*
+ * Semantic evidence must influence the final
+ * healing decision.
+ *
+ * Generic candidate quality must never be enough
+ * to beat a candidate that has stronger identity
+ * evidence.
+ */
+
+int semanticSignals =
+        semanticEvidence.getSignalCount();
+
+
+
+/*
+ * Strong semantic identity gets a major bonus.
+ *
+ * This makes:
+ *
+ * variable + locator + text + DOM identity
+ *
+ * more important than generic:
+ *
+ * unique + button + displayed + enabled.
+ */
+if (strongIdentity) {
+
+    finalScore += 1000.0;
+
 }
 
-if (!validateEnabled(element)) {
-    System.out.println("FAILED: validateEnabled");
-    continue;
+/*
+ * Additional signal weighting.
+ *
+ * More independent semantic evidence means
+ * stronger confidence that this is the intended
+ * element.
+ */
+finalScore +=
+        semanticSignals * 250.0;
+
+candidate.setFinalScore(finalScore);
+
+System.out.println(
+        "===== SEMANTIC SCORE =====");
+
+System.out.println(
+        "Candidate       : "
+                + candidate.getLocatorType()
+                + "="
+                + candidate.getLocatorValue());
+
+System.out.println(
+        "Original Score  : "
+                + candidate.getFinalScore());
+
+System.out.println(
+        "Semantic Signals: "
+                + semanticSignals);
+
+System.out.println(
+        "Strong Identity : "
+                + strongIdentity);
+
+System.out.println(
+        "Final Score     : "
+                + finalScore);
+
+System.out.println(
+        "==========================");
+
+if (finalScore > bestScore) {
+
+    bestScore = finalScore;
+    bestCandidate = candidate;
 }
 
-if (!validateActionCompatibility(element, context)) {
-    System.out.println("FAILED: validateActionCompatibility");
-    continue;
-}
+    } catch (Exception e) {
 
-if (!validateIntent(element, candidate, context)) {
-    System.out.println("FAILED: validateIntent");
-    continue;
-}
+        System.out.println(
+                "VALIDATOR EXCEPTION");
 
-if (!validateFieldLabel(candidate, context)) {
-    System.out.println("FAILED: validateFieldLabel");
-    continue;
-}
-
-if (!validateTag(element, candidate)) {
-    System.out.println("FAILED: validateTag");
-    continue;
-}
-
-if (!validateLocatorAttribute(element, candidate)) {
-    System.out.println("FAILED: validateLocatorAttribute");
-    continue;
-}
-
-if (!validateExpectedText(element, context)) {
-    System.out.println("FAILED: validateExpectedText");
-    continue;
-}
-
-    if (candidate.getFinalScore() > bestScore) {
-        bestScore = candidate.getFinalScore();
-        bestCandidate = candidate;
+        e.printStackTrace();
     }
-
-}catch (Exception e) {
-
-    System.out.println("VALIDATOR EXCEPTION");
-    e.printStackTrace();
-}
-
-
 }
 
 
 
 if (bestCandidate != null
         && bestCandidate.getFinalScore() >= MIN_HEAL_SCORE) {
+
+    try {
+
+        By locator =
+                LocatorBuilder.build(bestCandidate);
+
+        WebElement validatedElement =
+                findSingleElement(driver, locator);
+
+        if (validatedElement != null) {
+
+            domContextExtractor.populate(
+                    context,
+                    driver,
+                    validatedElement);
+
+            /*
+             * The candidate has already been identified
+             * from the actual DOM element.
+             *
+             * Propagate its semantic intent back into
+             * FailureContext so subsequent healing,
+             * caching and reporting know what this element is.
+             */
+            if (bestCandidate.getIntent() != null
+                    && bestCandidate.getIntent()
+                            != ElementIntent.UNKNOWN) {
+
+                context.setExpectedIntent(
+                        bestCandidate.getIntent());
+
+                System.out.println(
+                        "Resolved Expected Intent = "
+                                + bestCandidate.getIntent());
+            }
+        }
+
+    } catch (Exception ignored) {
+    }
 
     return bestCandidate;
 }
@@ -152,17 +511,11 @@ try {
 
     elements = driver.findElements(locator);
 
-    System.out.println("\n===== NORMAL DOM SEARCH =====");
-System.out.println("Locator : " + locator);
-System.out.println("Matches : " + elements.size());
 
-if (locator.toString().startsWith("By.cssSelector:")) {
-    System.out.println(
-            "duplicate-card exists : "
-                    + driver.findElements(By.id("duplicate-card")).size());
-}
 
-System.out.println("=============================\n");
+
+
+
 
 } catch (Exception e) {
 
@@ -181,20 +534,43 @@ if (elements.size() > 1) {
     return null;
 }
 
+String locatorString = locator.toString();
+
+if (locatorString.startsWith("By.xpath:")) {
+
+    /*
+     * XPath cannot be searched inside shadow roots.
+     * Go directly to iframe search.
+     */
+    try {
+
+        WebElement iframeElement =
+                iframeHealingEngine.findElement(
+                        driver,
+                        locator);
+
+        if (iframeElement != null) {
+            return iframeElement;
+        }
+
+    } catch (NoSuchElementException ignored) {
+    }
+
+    return null;
+}
+
     JavascriptExecutor js =
             (JavascriptExecutor) driver;
 
-    List<WebElement> hosts =
-            driver.findElements(By.cssSelector("*"));
+   List<WebElement> hosts =
+        ShadowDomDetector.findShadowHosts(driver);
+
+if (!hosts.isEmpty()) {
 
     for (WebElement host : hosts) {
 
         try {
-            System.out.println(
-                "Checking host : "
-                        + host.getTagName()
-                        + " id="
-                        + host.getAttribute("id"));
+            
 
             Object hasShadow =
                     js.executeScript(
@@ -208,15 +584,11 @@ if (elements.size() > 1) {
 
             SearchContext shadowRoot =
                     host.getShadowRoot();
-                    System.out.println(
-        "Shadow root found on : "
-                + host.getTagName()
-                + " id="
-                + host.getAttribute("id"));
+                    
 
             By shadowLocator = locator;
 
-String locatorString = locator.toString();
+
 
 if (locatorString.startsWith("By.id: ")) {
 
@@ -239,17 +611,11 @@ if (locatorString.startsWith("By.id: ")) {
                     "." + locatorString.replace("By.className: ", ""));
 }
 
-if (locatorString.startsWith("By.xpath:")) {
-    continue;
-}
+
 
 List<WebElement> shadowElements =
         shadowRoot.findElements(shadowLocator);
-                    System.out.println(
-        "Searching in shadow root using:"
-                + locator
-                + " inside shadow root -> "
-                + shadowElements.size());
+                   
 
             if (shadowElements.size() == 1) {
                 return shadowElements.get(0);
@@ -269,7 +635,7 @@ List<WebElement> shadowElements =
     e.printStackTrace();
 }
     }
-
+}
    /*
  * Normal DOM and Shadow DOM search failed.
  * Try iframe search before giving up.
@@ -339,14 +705,14 @@ return null;
 private boolean validateIntent(
         WebElement element,
         LocatorCandidate candidate,
-        FailureContext context) {
+        ExpectedContext expectedContext) {
 
     try {
 
         ElementIntent expectedIntent =
-                context == null
+                expectedContext == null
                         ? ElementIntent.UNKNOWN
-                        : context.getExpectedIntent();
+                        : expectedContext.getExpectedIntent();
 
         if (expectedIntent == null
                 || expectedIntent == ElementIntent.UNKNOWN) {
@@ -367,12 +733,22 @@ private boolean validateIntent(
 
         if (expectedIntent == ElementIntent.INPUT) {
 
-            boolean validInput =
-                    tag.equals("input")
-                            || tag.equals("textarea")
-                            || "true".equalsIgnoreCase(
-                                    element.getAttribute(
-                                            "contenteditable"));
+           String contentEditable =
+        element.getAttribute("contenteditable");
+
+String role =
+        element.getAttribute("role");
+
+String ariaMultiline =
+        element.getAttribute("aria-multiline");
+
+boolean validInput =
+        tag.equals("input")
+        || tag.equals("textarea")
+        || "true".equalsIgnoreCase(contentEditable)
+        || "".equals(contentEditable)
+        || "textbox".equalsIgnoreCase(role)
+        || "true".equalsIgnoreCase(ariaMultiline);
 
             if (!validInput) {
 
@@ -392,7 +768,8 @@ private boolean validateIntent(
                 return false;
             }
 
-            return element.isEnabled();
+            return element.isDisplayed()
+        && element.isEnabled();
         }
 
         // ==========================================
@@ -658,86 +1035,65 @@ private boolean validateExpectedText(
         WebElement element,
         FailureContext context) {
 
+    if (element == null) {
+        return false;
+    }
+
     if (context == null) {
         return true;
     }
 
-    String expectedText =
-            context.getExpectedText();
-
-    if (expectedText == null
-            || expectedText.isBlank()) {
-
-        return true;
-    }
-
-String actualText =
-        element.getText();
-
-/*
- * Input/textarea values are stored in the value attribute,
- * not as visible text.
- */
-if (actualText == null || actualText.isBlank()) {
-
-    actualText =
-            element.getAttribute("value");
-}
-
-System.out.println("\n===== TEXT VALIDATION =====");
-System.out.println("Expected : " + expectedText);
-System.out.println("Actual   : " + actualText);
-System.out.println("Tag      : " + element.getTagName());
-System.out.println("Value    : " + element.getAttribute("value"));
-System.out.println("===========================\n");
-
-if (actualText == null
-        || actualText.isBlank()) {
-
-    return false;
-}
-
-    String expected =
-            normalizeText(expectedText);
-
-    String actual =
-            normalizeText(actualText);
-
-    // Exact or containment match
-    if (actual.equals(expected)
-            || actual.contains(expected)
-            || expected.contains(actual)) {
-
-        return true;
-    }
-
-    // Typo-tolerant comparison
-    double similarity =
-            calculateTextSimilarity(
-                    expected,
-                    actual);
-
-   
+    String expected = context.getExpectedText();
 
     /*
-     * Failed locator text may itself contain a typo.
+     * No expected text means text validation
+     * cannot make a decision.
      *
-     * Example:
-     * My Inffo -> My Info
-     *
-     * We accept a strong fuzzy match instead of
-     * requiring the broken locator text to match exactly.
+     * Missing evidence must NOT reject a candidate.
      */
-    if (similarity >= 0.75) {
-
-        
-
+    if (expected == null || expected.isBlank()) {
         return true;
     }
 
-  
+    expected = normalizeText(expected);
 
-    return false;
+    String actual = "";
+
+    try {
+        actual = element.getText();
+
+        if (actual == null || actual.isBlank()) {
+
+            String textContent =
+                    element.getAttribute("textContent");
+
+            if (textContent != null) {
+                actual = textContent;
+            }
+        }
+
+    } catch (Exception e) {
+        return false;
+    }
+
+    actual = normalizeText(actual);
+
+    /*
+     * Expected text is identity evidence.
+     *
+     * For TEXT intent we require the actual DOM
+     * element to contain the expected text.
+     */
+    if (actual.equals(expected)) {
+        return true;
+    }
+
+    /*
+     * Some elements contain surrounding whitespace
+     * or nested text. Allow the expected text to be
+     * contained in the normalized DOM text.
+     */
+    return actual.contains(expected);
 }
 
 private double calculateTextSimilarity(
@@ -820,45 +1176,47 @@ private int levenshteinDistance(
             [second.length()];
 }
 
+
 private boolean validateFieldLabel(
         LocatorCandidate candidate,
-        FailureContext context) {
+        ExpectedContext expectedContext) {
 
-    if (context == null) {
+    if (expectedContext == null) {
         return true;
     }
 
-    if (context.getExpectedIntent() != ElementIntent.INPUT) {
+    if (expectedContext.getExpectedIntent() != ElementIntent.INPUT) {
         return true;
     }
 
-    String variableName = context.getVariableName();
+   String expectedLabel =
+        expectedContext.getExpectedLabel();
     String nearestLabel = candidate.getNearestLabel();
 
     /*
      * Missing information should never reject a candidate.
      */
-    if (variableName == null
-            || variableName.isBlank()
+    if (expectedLabel == null
+            || expectedLabel.isBlank()
             || nearestLabel == null
             || nearestLabel.isBlank()) {
 
         return true;
     }
 
-    String normalizedVariable =
-            normalizeText(variableName);
+    String normalizedExpectedLabel =
+        normalizeText(expectedLabel);
 
     String normalizedLabel =
             normalizeText(nearestLabel);
 
-    String[] variableTokens =
-            normalizedVariable.split("\\s+");
+    String[] expectedTokens =
+        normalizedExpectedLabel.split("\\s+");
 
     int meaningfulTokens = 0;
     int matchedTokens = 0;
 
-    for (String token : variableTokens) {
+    for (String token : expectedTokens){
 
         if (token.length() < 3) {
             continue;
@@ -951,10 +1309,11 @@ private boolean isCompatibleWithExpectedIntent(
                     ? ElementIntent.UNKNOWN
                     : candidate.getIntent();
 
-   boolean isEditableControl =
+boolean isEditableControl =
         tag.equals("input")
                 || tag.equals("textarea")
                 || tag.equals("select");
+
 
     boolean isClickableControl =
             tag.equals("button")
@@ -972,35 +1331,33 @@ if (failedAction == ExecutionAction.CLEAR
         || failedAction == ExecutionAction.SEND_KEYS) {
 
     /*
-     * Action can be stale from the previous operation.
+     * SEND_KEYS and CLEAR are strict action requirements.
      *
-     * If source-code/semantic analysis already identified
-     * the failed locator as something other than INPUT,
-     * trust the expected intent instead of stale action history.
+     * The candidate itself must be an editable element.
+     *
+     * Never allow:
+     * label
+     * span
+     * div
+     * p
+     * heading
+     * button
+     * link
+     * or any other non-editable element.
      */
-    if (expectedIntent == ElementIntent.BUTTON
-            || expectedIntent == ElementIntent.LINK) {
 
-        return isClickableControl;
-    }
-
-    if (expectedIntent == ElementIntent.TEXT) {
-        return true;
-    }
-
-    if (expectedIntent == ElementIntent.DROPDOWN) {
-        return tag.equals("select")
-                || candidateIntent == ElementIntent.DROPDOWN;
-    }
-
-    /*
-     * SEND_KEYS / CLEAR is strict only when the failed
-     * element is actually expected to be an input,
-     * or when semantic intent is unknown.
-     */
     if (!isEditableControl) {
 
-        
+        System.out.println(
+                "FAILED: SEND_KEYS/CLEAR requires editable control -> "
+                        + candidate.getLocatorType()
+                        + "="
+                        + candidate.getLocatorValue()
+                        + " | tag="
+                        + tag
+                        + " | intent="
+                        + candidateIntent);
+
         return false;
     }
 
@@ -1022,9 +1379,9 @@ if (failedAction == ExecutionAction.CLICK) {
         return isEditableControl;
     }
 
-    if (expectedIntent == ElementIntent.TEXT) {
-        return true;
-    }
+  if (expectedIntent == ElementIntent.TEXT) {
+    return isEditableControl;
+}
 
     if (expectedIntent == ElementIntent.BUTTON
             || expectedIntent == ElementIntent.LINK) {
@@ -1059,20 +1416,30 @@ if (failedAction == ExecutionAction.CLICK) {
 
     return true;
 }
+
 private boolean validateActionCompatibility(
         WebElement element,
         FailureContext context) {
 
-    if (context == null
-            || context.getFailedAction() == null) {
-        return true;
+    if (element == null || context == null) {
+        return false;
     }
 
     ExecutionAction action =
             context.getFailedAction();
 
-    ElementIntent expectedIntent =
-            context.getExpectedIntent();
+    /*
+     * No action information is available.
+     *
+     * This is a locator validation/healing request,
+     * not an action-specific validation.
+     *
+     * Do not reject the candidate only because
+     * failedAction is null.
+     */
+    if (action == null) {
+        return true;
+    }
 
     String tag =
             element.getTagName()
@@ -1080,72 +1447,785 @@ private boolean validateActionCompatibility(
                     .trim();
 
     /*
-     * Semantic intent is stronger than a stale
-     * previously recorded execution action.
+     * =====================================================
+     * SEND_KEYS / CLEAR
+     * =====================================================
+     *
+     * These actions MUST target an editable element.
+     *
+     * label/span/div/button/a must never pass.
      */
-    if (expectedIntent != null
-            && expectedIntent != ElementIntent.UNKNOWN) {
+    if (action == ExecutionAction.SEND_KEYS
+            || action == ExecutionAction.CLEAR) {
 
-        if (expectedIntent == ElementIntent.BUTTON) {
+        if (tag.equals("input")
+                || tag.equals("textarea")) {
 
-            return tag.equals("button")
-                    || (tag.equals("input")
-                    && ("submit".equalsIgnoreCase(
-                            element.getAttribute("type"))
-                    || "button".equalsIgnoreCase(
-                            element.getAttribute("type"))));
+            String readonly =
+                    element.getAttribute("readonly");
+
+            if (readonly != null
+                    && !readonly.isBlank()) {
+
+                return false;
+            }
+
+            return element.isDisplayed()
+                    && element.isEnabled();
         }
 
-        if (expectedIntent == ElementIntent.LINK) {
+        String contentEditable =
+                element.getAttribute("contenteditable");
 
-            return tag.equals("a")
-                    || tag.equals("button");
+        if ("true".equalsIgnoreCase(
+                contentEditable)) {
+
+            return element.isDisplayed()
+                    && element.isEnabled();
         }
 
-        if (expectedIntent == ElementIntent.INPUT) {
+        String role =
+                element.getAttribute("role");
 
-            return tag.equals("input")
-                    || tag.equals("textarea")
-                    || "true".equalsIgnoreCase(
-                            element.getAttribute(
-                                    "contenteditable"));
+        if ("textbox".equalsIgnoreCase(role)) {
+
+            return element.isDisplayed()
+                    && element.isEnabled();
         }
 
-        if (expectedIntent == ElementIntent.DROPDOWN) {
+        String ariaMultiline =
+                element.getAttribute("aria-multiline");
 
-            return tag.equals("select")
-                    || (tag.equals("input")
-                    && "combobox".equalsIgnoreCase(
-                            element.getAttribute("role")));
+        if ("true".equalsIgnoreCase(
+                ariaMultiline)) {
+
+            return element.isDisplayed()
+                    && element.isEnabled();
         }
 
-        if (expectedIntent == ElementIntent.TEXT) {
+        return false;
+    }
+
+    /*
+     * =====================================================
+     * CLICK
+     * =====================================================
+     */
+    if (action == ExecutionAction.CLICK) {
+
+        if (!element.isDisplayed()
+                || !element.isEnabled()) {
+
+            return false;
+        }
+
+        if (tag.equals("button")
+                || tag.equals("a")
+                || tag.equals("input")
+                || tag.equals("label")) {
+
+            return true;
+        }
+
+        String role =
+                element.getAttribute("role");
+
+        return "button".equalsIgnoreCase(role)
+                || "link".equalsIgnoreCase(role);
+    }
+
+    /*
+     * =====================================================
+     * Other actions
+     * =====================================================
+     */
+    ElementCapability capability =
+            actionCapabilityResolver.resolve(action);
+
+    if (capability == null) {
+        return false;
+    }
+
+    return capabilityValidator.supports(
+            element,
+            capability);
+}
+
+private boolean hasStrongSemanticEvidence(
+        LocatorCandidate candidate,
+        FailureContext context) {
+
+    if (candidate == null || context == null) {
+        return false;
+    }
+
+    int signals = 0;
+    boolean strongIdentityMatch = false;
+
+    String variable =
+            context.getVariableName();
+
+    String locatorHint =
+            context.getLocatorTextHint();
+
+    String expectedLabel =
+            context.getExpectedLabel();
+
+    String expectedText =
+            context.getExpectedText();
+
+            String failedLocator =
+        context.getFailedLocator();
+
+        String failedLocatorText =
+        extractMeaningfulTextFromLocator(
+                failedLocator);
+
+    String candidateValue =
+            candidate.getLocatorValue();
+
+    String candidateType =
+            candidate.getLocatorType();
+
+    String candidateTag =
+            candidate.getTagName();
+
+            String candidateText =
+        candidate.getElementText();
+
+String candidateId =
+        candidate.getId();
+
+String candidateName =
+        candidate.getName();
+
+String candidatePlaceholder =
+        candidate.getPlaceholder();
+
+String candidateAriaLabel =
+        candidate.getAriaLabel();
+
+String candidateNearestLabel =
+        candidate.getNearestLabel();
+
+    /*
+     * Variable-name evidence
+     */
+if (hasMeaningfulTokenMatch(
+        expectedText,
+        candidateText)) {
+
+    signals++;
+
+    System.out.println(
+            "EXPECTED TEXT MATCH | expected="
+                    + expectedText
+                    + " | candidateText="
+                    + candidateText);
+}
+
+    /*
+     * Locator text evidence
+     */
+    if (hasMeaningfulTokenMatch(
+            locatorHint,
+            candidateValue,
+            candidateTag)) {
+
+        signals++;
+    }
+
+    /*
+     * Expected label evidence
+     */
+    if (hasMeaningfulTokenMatch(
+            expectedLabel,
+            candidate.getNearestLabel(),
+            candidateValue)) {
+
+        signals++;
+    }
+
+    /*
+     * Expected text evidence
+     */
+    if (hasMeaningfulTokenMatch(
+            expectedText,
+            candidateValue,
+            candidate.getNearestLabel())) {
+
+        signals++;
+    }
+
+/*
+ * Direct locator-attribute / locator-value evidence.
+ *
+ * Strong identity locators such as id, name,
+ * data-test, data-testid, data-qa and data-cy
+ * can provide semantic evidence directly.
+/*
+ * Strong identity locator is useful only when
+ * its value actually matches expected semantic data.
+ *
+ * Merely having an id/name/data-test is NOT enough.
+ */
+if (isStrongIdentityLocator(candidateType)) {
+
+    if (hasMeaningfulTokenMatch(
+            expectedText,
+            candidateValue)
+            || hasMeaningfulTokenMatch(
+                    locatorHint,
+                    candidateValue)
+            || hasMeaningfulTokenMatch(
+                    expectedLabel,
+                    candidateValue)
+            || hasMeaningfulTokenMatch(
+                    variable,
+                    candidateValue)) {
+
+        signals++;
+        strongIdentityMatch = true;
+    }
+}
+
+/*
+ * Strong identity comparison against the failed locator.
+ *
+ * Example:
+ *
+ * Failed:
+ *     By.id: add-to-cart-sauce-labs-backpack-old
+ *
+ * Candidate:
+ *     id=add-to-cart-sauce-labs-backpack
+ *
+ * The candidate should be accepted because the candidate
+ * preserves the meaningful identity of the failed locator.
+ */
+if (isStrongIdentityLocator(candidateType)
+        && failedLocator != null
+        && !failedLocator.isBlank()) {
+
+    String failedIdentity =
+            extractLocatorIdentityValue(failedLocator);
+
+    if (isStrongIdentityMatch(
+            failedIdentity,
+            candidateValue)) {
+
+        signals++;
+        strongIdentityMatch = true;
+
+        System.out.println(
+                "STRONG IDENTITY MATCH | failed="
+                        + failedIdentity
+                        + " | candidate="
+                        + candidateValue);
+    }
+}
+
+/*
+ * Failed className can carry useful identity.
+ *
+ * Example:
+ *
+ * Failed locator:
+ *     By.className: shopping
+ *
+ * Candidate:
+ *     class=shopping_cart_link
+ *
+ * The candidate preserves the meaningful token
+ * "shopping" from the failed locator.
+ */
+if ("class".equalsIgnoreCase(candidateType)
+        && failedLocator != null
+        && !failedLocator.isBlank()) {
+
+    String failedIdentity =
+            extractLocatorIdentityValue(failedLocator);
+
+    if (hasMeaningfulTokenMatch(
+            failedIdentity,
+            candidateValue)) {
+
+        signals++;
+        strongIdentityMatch = true;
+
+        System.out.println(
+                "CLASS IDENTITY MATCH | failed="
+                        + failedIdentity
+                        + " | candidate="
+                        + candidateValue);
+    }
+}
+
+/*
+ * Text/XPath candidates can also carry strong
+ * business identity.
+ *
+ * Example:
+ *
+ * //div[normalize-space()='Sauce Labs Backpack']
+ *
+ * This is a meaningful locator because the
+ * candidate contains the expected product text.
+ */
+/*
+ * Text/XPath candidates can carry strong business identity.
+ *
+ * Example:
+ *
+ * //div[normalize-space()='Sauce Labs Backpack']
+ *
+ * The actual business text must match the expected
+ * text or the meaningful text extracted from the
+ * failed locator.
+ */
+if ("text".equalsIgnoreCase(candidateType)
+        || "xpath".equalsIgnoreCase(candidateType)) {
+
+    boolean textMatch =
+            hasMeaningfulTokenMatch(
+                    expectedText,
+                    candidateValue,
+                    candidateText)
+            || hasMeaningfulTokenMatch(
+                    locatorHint,
+                    candidateValue,
+                    candidateText)
+            || hasMeaningfulTokenMatch(
+                    variable,
+                    candidateValue,
+                    candidateText);
+
+    boolean failedLocatorTextMatch =
+            hasMeaningfulTokenMatch(
+                    failedLocatorText,
+                    candidateValue,
+                    candidateText);
+
+    if (textMatch) {
+        signals++;
+    }
+
+    /*
+     * Exact business identity from the broken locator
+     * is strong evidence.
+     *
+     * Example:
+     *
+     * Failed locator:
+     * //div[@data-test='inventory-item-name'
+     *      and normalize-space()='Sauce Labs Backpack']
+     *
+     * Candidate:
+     * //div[normalize-space()='Sauce Labs Backpack']
+     *
+     * This is the same business element.
+     */
+    if (failedLocatorTextMatch) {
+
+        String expectedBusinessText =
+                normalizeText(failedLocatorText);
+
+        String actualCandidateText =
+                normalizeText(candidateText);
+
+        String normalizedCandidateValue =
+                normalizeText(candidateValue);
+
+        boolean exactTextMatch =
+                (!actualCandidateText.isBlank()
+                        && actualCandidateText.equals(
+                                expectedBusinessText))
+                || (!normalizedCandidateValue.isBlank()
+                        && normalizedCandidateValue.contains(
+                                expectedBusinessText));
+
+        if (exactTextMatch) {
+            strongIdentityMatch = true;
+        }
+    }
+}
+if (expectedText != null
+        && !expectedText.isBlank()
+        && candidateText != null
+        && !candidateText.isBlank()) {
+
+    String expected =
+            normalizeText(expectedText);
+
+    String actual =
+            normalizeText(candidateText);
+
+    if (actual.equals(expected)) {
+        signals++;
+    }
+}
+    /*
+ * Direct DOM evidence.
+ *
+ * The candidate already contains information
+ * extracted from the actual DOM element.
+ */
+if (hasMeaningfulTokenMatch(
+        expectedText,
+        candidateText)
+        || hasMeaningfulTokenMatch(
+                locatorHint,
+                candidateText)
+        || hasMeaningfulTokenMatch(
+                expectedLabel,
+                candidateText)
+        || hasMeaningfulTokenMatch(
+                expectedText,
+                candidateNearestLabel)
+        || hasMeaningfulTokenMatch(
+                locatorHint,
+                candidateNearestLabel)) {
+
+    signals++;
+}
+
+/*
+ * Strong candidate identity evidence.
+ */
+if (hasMeaningfulTokenMatch(
+        expectedText,
+        candidateId,
+        candidateName,
+        candidatePlaceholder,
+        candidateAriaLabel)) {
+
+    signals++;
+}
+if (hasMeaningfulTokenMatch(
+        failedLocatorText,
+        candidateValue,
+        candidateNearestLabel)) {
+
+    signals++;
+}
+    System.out.println(
+            "SEMANTIC SAFETY CHECK | "
+                    + candidateType
+                    + "="
+                    + candidateValue
+                    + " | signals="
+                    + signals);
+
+  if (context.getExpectedIntent() == ElementIntent.TEXT
+        && expectedText != null
+        && !expectedText.isBlank()
+        && candidateText != null
+        && !candidateText.isBlank()) {
+
+    if (normalizeText(candidateText)
+            .equals(normalizeText(expectedText))) {
+
+        return true;
+    }
+}
+
+return strongIdentityMatch || signals >= 2;
+}
+
+
+private String extractMeaningfulTextFromLocator(
+        String failedLocator) {
+
+    if (failedLocator == null
+            || failedLocator.isBlank()) {
+
+        return "";
+    }
+
+    String locator = failedLocator.trim();
+
+    /*
+     * XPath text:
+     *
+     * //div[normalize-space()='Sauce Labs Backpack']
+     *
+     * or
+     *
+     * //div[text()='Sauce Labs Backpack']
+     */
+    java.util.regex.Pattern xpathTextPattern =
+            java.util.regex.Pattern.compile(
+                    "(?:normalize-space\\(\\)|text\\(\\))\\s*=\\s*['\"]([^'\"]+)['\"]",
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    java.util.regex.Matcher xpathMatcher =
+            xpathTextPattern.matcher(locator);
+
+    if (xpathMatcher.find()) {
+        return xpathMatcher.group(1);
+    }
+
+    /*
+     * XPath contains:
+     *
+     * contains(text(),'Sauce Labs Backpack')
+     */
+    java.util.regex.Pattern containsPattern =
+            java.util.regex.Pattern.compile(
+                    "contains\\s*\\([^,]+,\\s*['\"]([^'\"]+)['\"]\\s*\\)",
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    java.util.regex.Matcher containsMatcher =
+            containsPattern.matcher(locator);
+
+    if (containsMatcher.find()) {
+        return containsMatcher.group(1);
+    }
+
+    /*
+     * Common locator values:
+     *
+     * By.id: username
+     * By.name: username
+     * By.cssSelector: [placeholder='Search']
+     */
+    java.util.regex.Pattern attributePattern =
+            java.util.regex.Pattern.compile(
+                    "['\"]([^'\"]+)['\"]");
+
+    java.util.regex.Matcher attributeMatcher =
+            attributePattern.matcher(locator);
+
+    if (attributeMatcher.find()) {
+        return attributeMatcher.group(1);
+    }
+
+    return "";
+}
+private boolean hasMeaningfulTokenMatch(
+        String expected,
+        String... actualValues) {
+
+    if (expected == null
+            || expected.isBlank()
+            || actualValues == null) {
+
+        return false;
+    }
+
+    List<String> expectedTokens =
+            tokenizeMeaningful(expected);
+
+    if (expectedTokens.isEmpty()) {
+        return false;
+    }
+
+    for (String actual : actualValues) {
+
+        if (actual == null
+                || actual.isBlank()) {
+            continue;
+        }
+
+        String normalizedActual =
+                normalizeText(actual);
+
+        List<String> actualTokens =
+                java.util.Arrays.asList(
+                        normalizedActual.split("\\s+"));
+
+        int matched = 0;
+
+        for (String token : expectedTokens) {
+
+            if (actualTokens.contains(token)) {
+                matched++;
+            }
+        }
+
+        /*
+         * Require majority of meaningful tokens.
+         *
+         * Example:
+         * Sauce Labs Bolt T-Shirt
+         *
+         * Sauce Labs Backpack
+         * -> 2 / 4 = 50% -> reject
+         *
+         * Sauce Labs Bolt T-Shirt
+         * -> 4 / 4 = 100% -> accept
+         */
+        double matchRatio =
+                (double) matched
+                        / expectedTokens.size();
+
+        if (matchRatio >= 0.75) {
             return true;
         }
     }
 
-    /*
-     * Fall back to execution action only when
-     * semantic intent is unavailable.
-     */
-    if (action == ExecutionAction.CLEAR
-            || action == ExecutionAction.SEND_KEYS) {
+    return false;
+}
 
-        boolean editableField =
-                tag.equals("input")
-                        || tag.equals("textarea")
-                        || "true".equalsIgnoreCase(
-                                element.getAttribute(
-                                        "contenteditable"));
+private List<String> tokenizeMeaningful(
+        String value) {
 
-        if (!editableField) {
+    List<String> tokens =
+            new java.util.ArrayList<>();
 
-           
+    if (value == null
+            || value.isBlank()) {
 
+        return tokens;
+    }
+
+    String normalized =
+            normalizeText(value);
+
+    for (String token :
+            normalized.split("\\s+")) {
+
+        if (token.length() < 3) {
+            continue;
+        }
+
+        if (isGenericToken(token)) {
+            continue;
+        }
+
+        tokens.add(token);
+    }
+
+    return tokens;
+}
+private boolean isStrongIdentityLocator(
+        String locatorType) {
+
+    if (locatorType == null
+            || locatorType.isBlank()) {
+
+        return false;
+    }
+
+    switch (locatorType.toLowerCase()) {
+
+        case "id":
+        case "name":
+        case "data-test":
+        case "data-testid":
+        case "data-qa":
+        case "data-cy":
+        case "aria-label":
+        case "placeholder":
+            return true;
+
+        default:
             return false;
+    }
+}
+
+private String extractLocatorIdentityValue(
+        String failedLocator) {
+
+    if (failedLocator == null
+            || failedLocator.isBlank()) {
+
+        return "";
+    }
+
+    String locator =
+            failedLocator.trim();
+
+    /*
+     * Selenium locator forms:
+     *
+     * By.id: username
+     * By.name: username
+     * By.className: login
+     * By.cssSelector: ...
+     */
+    String[] prefixes = {
+            "By.id: ",
+            "By.name: ",
+            "By.className: ",
+            "By.cssSelector: ",
+            "By.xpath: "
+    };
+
+    for (String prefix : prefixes) {
+
+        if (locator.startsWith(prefix)) {
+
+            return locator
+                    .substring(prefix.length())
+                    .trim();
         }
     }
 
-    return true;
+    return locator;
 }
+
+
+private boolean isStrongIdentityMatch(
+        String failedIdentity,
+        String candidateValue) {
+
+    if (failedIdentity == null
+            || candidateValue == null
+            || failedIdentity.isBlank()
+            || candidateValue.isBlank()) {
+
+        return false;
+    }
+
+    String failed =
+            normalizeText(failedIdentity);
+
+    String candidate =
+            normalizeText(candidateValue);
+
+    if (failed.equals(candidate)) {
+        return true;
+    }
+
+    /*
+     * Broken locator may contain a suffix such as:
+     *
+     * -old
+     * -broken
+     * -invalid
+     * -changed
+     *
+     * Candidate must represent the meaningful
+     * identity before that suffix.
+     */
+    String[] suffixes = {
+            " old",
+            " broken",
+            " invalid",
+            " changed",
+            " wrong",
+            " invalidlocator"
+    };
+
+    for (String suffix : suffixes) {
+
+        if (failed.endsWith(suffix)) {
+
+            String base =
+                    failed.substring(
+                            0,
+                            failed.length()
+                                    - suffix.length())
+                            .trim();
+
+            if (base.equals(candidate)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 }

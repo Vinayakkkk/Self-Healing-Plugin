@@ -2,17 +2,29 @@ package com.vinayak.healing.builder;
 
 import org.openqa.selenium.WebDriver;
 
+import com.vinayak.healing.context.DomContextExtractor;
+import com.vinayak.healing.execution.ExecutionAction;
 import com.vinayak.healing.execution.ExecutionContext;
 import com.vinayak.healing.execution.ExecutionTracker;
+import com.vinayak.healing.expected.ExpectedContext;
+import com.vinayak.healing.expected.ExpectedContextManager;
 import com.vinayak.healing.intent.ElementIntent;
 import com.vinayak.healing.logging.HealingLogger;
 import com.vinayak.healing.model.FailureContext;
+import com.vinayak.healing.outcome.model.ExpectedElement;
+import com.vinayak.healing.outcome.model.ExpectedOutcomeAction;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class FailureContextBuilder {
+
+        private final ExpectedContextManager expectedContextManager =
+        new ExpectedContextManager();
+
+       
 
     public FailureContext build(
             WebDriver driver,
@@ -38,12 +50,17 @@ public class FailureContextBuilder {
         context.setFailedLocator(
                 failedLocator);
 
-// Keep the original Java variable name for source repair
-context.setVariableName(variableName);
+String resolvedVariableName =
+        resolveVariableName(
+                variableName,
+                failedLocator);
 
-// Use a normalized copy only for intent analysis
+context.setVariableName(
+        resolvedVariableName);
+
 String normalizedVariableName =
-        normalize(variableName);
+        normalize(
+                resolvedVariableName);
 
 context.setLocatorDeclaration(
         locatorDeclaration);
@@ -63,7 +80,10 @@ context.setExpectedTag(
  * Until execution/wait-condition arguments are captured,
  * do not use locator text as a strict candidate filter.
  */
-context.setExpectedText("");
+String expectedText =
+        extractExpectedTextFromException(exception);
+
+context.setExpectedText(expectedText);
 
 context.setLocatorTextHint(
         extractExpectedText(locatorDeclaration));
@@ -80,23 +100,7 @@ HealingLogger.debug(
 
 
 
-context.setExpectedIntent(
-        extractExpectedIntent(
-                normalizedVariableName,
-                locatorDeclaration,
-                context.getExpectedTag()));
 
-HealingLogger.debug(
-        "VARIABLE = "
-                + normalizedVariableName);
-
-        HealingLogger.debug(
-                "EXPECTED TAG    = "
-                        + context.getExpectedTag());
-
-        HealingLogger.debug(
-                "EXPECTED INTENT = "
-                        + context.getExpectedIntent());
 
         // -------------------------
         // Browser Information
@@ -104,18 +108,33 @@ HealingLogger.debug(
 
         if (driver != null) {
 
-            try {
-                context.setCurrentUrl(
-                        driver.getCurrentUrl());
-            } catch (Exception ignored) {
-            }
+    try {
 
-            try {
-                context.setPageSource(
-        buildCombinedPageSource(driver));
-            } catch (Exception ignored) {
-            }
-        }
+        String currentUrl = driver.getCurrentUrl();
+
+        context.setPreviousUrl(currentUrl);
+
+        context.setCurrentUrl(currentUrl);
+
+    } catch (Exception ignored) {
+    }
+
+    try {
+
+        context.setExpectedTitle(
+                driver.getTitle());
+
+    } catch (Exception ignored) {
+    }
+
+    try {
+
+        context.setPageSource(
+                buildCombinedPageSource(driver));
+
+    } catch (Exception ignored) {
+    }
+}
 
         // -------------------------
         // Execution Information
@@ -130,6 +149,12 @@ ExecutionContext executionContext =
 context.setExecutionContext(
         executionContext);
 
+
+/*
+ * Resolve the action that caused the failure
+ * BEFORE expected-context resolution and
+ * candidate filtering.
+ */
 if (executionContext != null
         && executionContext.getLatestAction() != null
         && executionContext
@@ -144,57 +169,73 @@ if (executionContext != null
     HealingLogger.debug(
             "FAILED ACTION = "
                     + context.getFailedAction());
+}
+context.setExpectedIntent(
+        extractExpectedIntent(
+                normalizedVariableName,
+                locatorDeclaration,
+                context.getExpectedTag(),
+                context.getExpectedText(),
+                context.getFailedAction()));
 
-    switch (context.getFailedAction()) {
+HealingLogger.debug(
+        "VARIABLE = "
+                + normalizedVariableName);
 
-        case SEND_KEYS:
-        case CLEAR:
+HealingLogger.debug(
+        "EXPECTED TAG = "
+                + context.getExpectedTag());
 
-            /*
-             * SEND_KEYS/CLEAR strongly proves that
-             * the failed element must be editable.
-             *
-             * TEXT here means the semantic inference
-             * is wrong for this runtime operation.
-             */
-            if (context.getExpectedIntent() == null
-                    || context.getExpectedIntent()
-                            == ElementIntent.UNKNOWN
-                    || context.getExpectedIntent()
-                            == ElementIntent.TEXT) {
+HealingLogger.debug(
+        "FAILED ACTION = "
+                + context.getFailedAction());
 
-                context.setExpectedIntent(
-                        ElementIntent.INPUT);
-            }
+HealingLogger.debug(
+        "EXPECTED INTENT = "
+                + context.getExpectedIntent());
 
-            break;
+/*
+ * Enrich execution context.
+ */
+enrichFromExecutionContext(
+        context,
+        executionContext);
 
-        case CLICK:
 
-            /*
-             * CLICK alone must not force BUTTON.
-             *
-             * Keep strong source-code semantics:
-             * BUTTON, LINK, etc.
-             *
-             * But a stale TEXT classification should
-             * not be used as a strict interactive
-             * candidate filter for a failed click.
-             */
-            if (context.getExpectedIntent()
-                    == ElementIntent.TEXT
-                    && context.getExpectedTag() == null) {
+/*
+ * Resolve expected context only after
+ * failedAction has been established.
+ */
+ExpectedContext expectedContext =
+        expectedContextManager.resolve(
+                context,
+                executionContext);
 
-                context.setExpectedIntent(
-                        ElementIntent.UNKNOWN);
-            }
+context.setExpectedContext(
+        expectedContext);
 
-            break;
+if (expectedContext != null) {
 
-        default:
-            break;
+    /*
+     * Preserve expected text obtained directly from
+     * the Selenium execution condition.
+     *
+     * Example:
+     *
+     * Selenium:
+     * to have text "Products"
+     *
+     * This is stronger than locator-derived evidence.
+     */
+    if (isBlank(context.getExpectedText())
+            && !isBlank(expectedContext.getExpectedText())) {
+
+        context.setExpectedText(
+                expectedContext.getExpectedText());
     }
 }
+
+
 
 HealingLogger.debug(
         "FINAL EXPECTED TAG = "
@@ -203,6 +244,16 @@ HealingLogger.debug(
 HealingLogger.debug(
         "FINAL EXPECTED INTENT = "
                 + context.getExpectedIntent());
+
+                context.setExpectedUrl("");
+
+context.setExpectedElements(
+        new ArrayList<ExpectedElement>());
+
+context.setExpectedOutcomeAction(
+        ExpectedOutcomeAction.UNKNOWN);
+
+
 
 return context;
     }
@@ -298,7 +349,9 @@ private String extractExpectedTag(String declaration) {
 private ElementIntent extractExpectedIntent(
         String variableName,
         String declaration,
-        String expectedTag) {
+        String expectedTag,
+        String expectedText,
+        ExecutionAction failedAction) {
 
     String variable =
             variableName == null
@@ -310,126 +363,81 @@ private ElementIntent extractExpectedIntent(
                     ? ""
                     : declaration.toLowerCase();
 
-    String tag =
-            expectedTag == null
-                    ? ""
-                    : expectedTag.toLowerCase();
-
-    // ==========================================
-    // 1. STRONG TAG EVIDENCE
-    // ==========================================
-
-    if ("input".equals(tag)
-            || "textarea".equals(tag)) {
-
-        return ElementIntent.INPUT;
-    }
-
-    if ("select".equals(tag)) {
-
-        return ElementIntent.DROPDOWN;
-    }
-
-    if ("button".equals(tag)) {
-
-        return ElementIntent.BUTTON;
-    }
-
-    if ("a".equals(tag)) {
-
-        return ElementIntent.LINK;
-    }
-
-    /*
-     * If source code explicitly targets a normal
-     * text/container tag, generic words such as
-     * "name" must NOT classify it as INPUT.
-     */
-    if ("div".equals(tag)
-            || "span".equals(tag)
-            || "label".equals(tag)
-            || "h1".equals(tag)
-            || "h2".equals(tag)
-            || "h3".equals(tag)
-            || "h4".equals(tag)
-            || "h5".equals(tag)
-            || "h6".equals(tag)
-            || "td".equals(tag)) {
+                     if (expectedText != null
+            && !expectedText.isBlank()) {
 
         return ElementIntent.TEXT;
     }
 
-    // ==========================================
-    // 2. LOCATOR STRUCTURE
-    // ==========================================
+    /*
+     * =====================================================
+     * 1. SEMANTIC INTENT FROM VARIABLE NAME
+     * =====================================================
+     *
+     * ElementIntent itself is the vocabulary.
+     *
+     * No hardcoded list such as:
+     * login, save, delete, logout, etc.
+     *
+     * Examples:
+     *
+     * loginButton       -> BUTTON
+     * searchField       -> UNKNOWN
+     * rememberCheckbox  -> CHECKBOX
+     * genderRadio       -> RADIO
+     * countryDropdown   -> DROPDOWN
+     * productTable      -> TABLE
+     */
 
-    if (locator.contains("//input")
-            || locator.contains("/input")
-            || locator.contains("//textarea")
-            || locator.contains("/textarea")) {
+    ElementIntent variableIntent =
+            inferIntentFromVariable(variable);
 
-        return ElementIntent.INPUT;
+    if (variableIntent != ElementIntent.UNKNOWN) {
+        return variableIntent;
     }
 
-    if (locator.contains("//select")
-            || locator.contains("/select")) {
+    /*
+     * =====================================================
+     * 2. LOCATOR SEMANTICS
+     * =====================================================
+     *
+     * Only use locator structure when it explicitly
+     * expresses semantic intent.
+     *
+     * The tag from the FAILED locator is deliberately
+     * NOT treated as strong expected intent.
+     */
 
-        return ElementIntent.DROPDOWN;
+    if (containsExplicitLocatorIntent(locator)) {
+        return inferIntentFromLocator(locator);
     }
 
-    if (locator.contains("//button")
-            || locator.contains("/button")
-            || locator.contains("@type='submit'")
-            || locator.contains("@type=\"submit\"")
-            || locator.contains("@type='button'")
-            || locator.contains("@type=\"button\"")) {
+    /*
+     * =====================================================
+     * 3. No reliable semantic evidence
+     * =====================================================
+     */
 
-        return ElementIntent.BUTTON;
+    if (failedAction != null) {
+
+    switch (failedAction) {
+
+        case SEND_KEYS:
+        case CLEAR:
+            return ElementIntent.INPUT;
+
+        case CHECKBOX:
+            return ElementIntent.CHECKBOX;
+
+        case RADIO:
+            return ElementIntent.RADIO;
+
+        case SELECT:
+            return ElementIntent.DROPDOWN;
+
+        default:
+            break;
     }
-
-    if (locator.contains("//a")
-            || locator.contains("/a[")) {
-
-        return ElementIntent.LINK;
-    }
-
-    // ==========================================
-    // 3. VARIABLE SEMANTICS
-    // ==========================================
-
-    if (variable.matches(
-        ".*(input|text\\s*area|text\\s*box|text\\s*field|"
-                + "username|password|email|search|"
-                + "field|name|number|date|code|"
-                + "identifier|postal|zip|phone|address).*")) {
-
-    return ElementIntent.INPUT;
-}
-
-    if (variable.matches(
-            ".*(dropdown|select|combo|option).*")) {
-
-        return ElementIntent.DROPDOWN;
-    }
-
-    if (variable.matches(
-            ".*(button|btn|submit|save|cancel|login|"
-                    + "logout|apply|reset|continue).*")) {
-
-        return ElementIntent.BUTTON;
-    }
-
-    if (variable.matches(
-            ".*(link|menu|url|navigation|nav|icon).*")) {
-
-        return ElementIntent.LINK;
-    }
-
-    if (variable.matches(
-        ".*(title|header|heading|label|text|message|"
-                + "badge|price|description).*")) {
-
-    return ElementIntent.TEXT;
 }
 
     return ElementIntent.UNKNOWN;
@@ -464,6 +472,35 @@ private ElementIntent extractExpectedIntent(
 
                 .toLowerCase();
     }
+
+private String resolveVariableName(
+        String variableName,
+        String failedLocator) {
+
+    if (variableName != null
+            && !variableName.isBlank()
+            && !"DIRECT_LOCATOR".equalsIgnoreCase(variableName)) {
+
+        return variableName;
+    }
+
+    /*
+     * Never derive a Java variable name from
+     * the failed locator.
+     *
+     * Example:
+     *
+     * By.className: oxd-buzz
+     *
+     * oxd-buzz is the locator value,
+     * NOT the Page Object variable name.
+     *
+     * If source analysis could not resolve
+     * the variable, mark it as DIRECT_LOCATOR.
+     */
+
+    return "DIRECT_LOCATOR";
+}
 
 private String extractExpectedText(
         String locatorDeclaration) {
@@ -506,6 +543,150 @@ private String extractExpectedText(
 
     return "";
 }
+
+private String extractExpectedTextFromException(
+        Throwable exception) {
+
+    if (exception == null) {
+        return "";
+    }
+
+    /*
+     * Walk through the complete exception cause chain.
+     *
+     * Selenium/framework code may wrap the original
+     * TimeoutException inside another exception.
+     *
+     * We must inspect every cause instead of relying
+     * only on exception.getMessage().
+     */
+    Throwable current = exception;
+
+    while (current != null) {
+
+        String message = current.getMessage();
+
+        if (message != null
+                && !message.isBlank()) {
+
+            /*
+             * Generic support for Selenium conditions:
+             *
+             * to have text "..."
+             * to contain text "..."
+             *
+             * The actual expected value is captured
+             * dynamically. Nothing is hardcoded.
+             */
+            Pattern pattern =
+                    Pattern.compile(
+                            "(?:to\\s+(?:have|contain)\\s+text)"
+                                    + "\\s+[\"']([^\"']+)[\"']",
+                            Pattern.CASE_INSENSITIVE);
+
+            Matcher matcher =
+                    pattern.matcher(message);
+
+            if (matcher.find()) {
+
+                String expectedText =
+                        matcher.group(1);
+
+                if (expectedText != null
+                        && !expectedText.isBlank()) {
+
+                    return expectedText.trim();
+                }
+            }
+        }
+
+        /*
+         * Move to the underlying exception.
+         */
+        current = current.getCause();
+    }
+
+    return "";
+}
+private void enrichFromExecutionContext(
+        FailureContext context,
+        ExecutionContext executionContext) {
+
+                System.out.println("\n========== EXECUTION CONTEXT ==========");
+
+System.out.println(
+        "ExecutionContext = "
+                + executionContext);
+
+System.out.println(
+        "LastSuccessful = "
+                + (executionContext == null
+                ? null
+                : executionContext.getLastSuccessfulStep()));
+
+    if (context == null
+            || executionContext == null
+            || executionContext.getLastSuccessfulStep() == null) {
+
+        return;
+    }
+
+    var step =
+            executionContext.getLastSuccessfulStep();
+
+    if (isBlank(context.getParentTag())) {
+
+        context.setParentTag(
+                step.getParentTag());
+    }
+
+    if (isBlank(context.getParentId())) {
+
+        context.setParentId(
+                step.getParentId());
+    }
+
+    if (isBlank(context.getParentClass())) {
+
+        context.setParentClass(
+                step.getParentClass());
+    }
+
+    if (isBlank(context.getNearestLabel())) {
+
+        context.setNearestLabel(
+                step.getNearestLabel());
+    }
+   
+
+
+
+    HealingLogger.debug(
+            "===== EXECUTION CONTEXT ENRICHMENT =====");
+
+    HealingLogger.debug(
+            "ParentTag      : "
+                    + context.getParentTag());
+
+    HealingLogger.debug(
+            "ParentId       : "
+                    + context.getParentId());
+
+    HealingLogger.debug(
+            "ParentClass    : "
+                    + context.getParentClass());
+
+    HealingLogger.debug(
+            "NearestLabel   : "
+                    + context.getNearestLabel());
+
+    HealingLogger.debug(
+            "ExpectedText   : "
+                    + context.getExpectedText());
+
+    HealingLogger.debug(
+            "========================================");
+}
 private String buildCombinedPageSource(WebDriver driver) {
 
     StringBuilder html = new StringBuilder();
@@ -543,5 +724,162 @@ private String buildCombinedPageSource(WebDriver driver) {
 
     return html.toString();
 }
+private boolean isBlank(String value) {
 
+    return value == null
+            || value.isBlank();
+}
+private ElementIntent inferIntentFromVariable(
+        String variableName) {
+
+    if (variableName == null
+            || variableName.isBlank()) {
+
+        return ElementIntent.UNKNOWN;
+    }
+
+    String normalized =
+            normalize(variableName);
+
+    String[] tokens =
+            normalized.split("\\s+");
+
+    /*
+     * Prefer exact semantic tokens.
+     *
+     * Example:
+     *
+     * loginButton
+     *     -> login + button
+     *     -> BUTTON
+     *
+     * rememberCheckbox
+     *     -> remember + checkbox
+     *     -> CHECKBOX
+     */
+    for (String token : tokens) {
+
+        ElementIntent intent =
+                intentFromToken(token);
+
+        if (intent != ElementIntent.UNKNOWN) {
+            return intent;
+        }
+    }
+
+    /*
+     * Handle enum names that may be represented
+     * as multiple words.
+     *
+     * Example:
+     *
+     * checkBox -> checkbox
+     * radioButton -> radiobutton
+     */
+    String compactVariable =
+            normalized.replace(" ", "");
+
+    for (ElementIntent intent :
+            ElementIntent.values()) {
+
+        if (intent == ElementIntent.UNKNOWN) {
+            continue;
+        }
+
+        String intentName =
+                intent.name()
+                        .toLowerCase();
+
+        if (compactVariable.contains(intentName)) {
+            return intent;
+        }
+    }
+
+    return ElementIntent.UNKNOWN;
+}
+private ElementIntent intentFromToken(
+        String token) {
+
+    if (token == null
+            || token.isBlank()) {
+
+        return ElementIntent.UNKNOWN;
+    }
+
+    for (ElementIntent intent :
+            ElementIntent.values()) {
+
+        if (intent == ElementIntent.UNKNOWN) {
+            continue;
+        }
+
+        if (intent.name()
+                .equalsIgnoreCase(token)) {
+
+            return intent;
+        }
+    }
+
+    return ElementIntent.UNKNOWN;
+}
+
+private boolean containsExplicitLocatorIntent(
+        String locator) {
+
+    if (locator == null
+            || locator.isBlank()) {
+
+        return false;
+    }
+
+    return locator.contains("//button")
+            || locator.contains("/button")
+            || locator.contains("//select")
+            || locator.contains("/select")
+            || locator.contains("//a")
+            || locator.contains("/a[")
+            || locator.contains("@type='checkbox'")
+            || locator.contains("@type=\"checkbox\"")
+            || locator.contains("@type='radio'")
+            || locator.contains("@type=\"radio\"")
+            || locator.contains("@type='submit'")
+            || locator.contains("@type=\"submit\"");
+}
+private ElementIntent inferIntentFromLocator(
+        String locator) {
+
+    if (locator.contains("//button")
+            || locator.contains("/button")
+            || locator.contains("@type='submit'")
+            || locator.contains("@type=\"submit\"")) {
+
+        return ElementIntent.BUTTON;
+    }
+
+    if (locator.contains("//select")
+            || locator.contains("/select")) {
+
+        return ElementIntent.DROPDOWN;
+    }
+
+    if (locator.contains("//a")
+            || locator.contains("/a[")) {
+
+        return ElementIntent.LINK;
+    }
+
+    if (locator.contains("@type='checkbox'")
+            || locator.contains("@type=\"checkbox\"")) {
+
+        return ElementIntent.CHECKBOX;
+    }
+
+    if (locator.contains("@type='radio'")
+            || locator.contains("@type=\"radio\"")) {
+
+        return ElementIntent.RADIO;
+    }
+
+    return ElementIntent.UNKNOWN;
+}
 }

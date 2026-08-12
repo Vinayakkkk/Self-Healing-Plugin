@@ -5,6 +5,7 @@ import com.vinayak.healing.builder.FailureContextFactory;
 import com.vinayak.healing.cache.LocatorCache;
 import com.vinayak.healing.config.HealingConfig;
 import com.vinayak.healing.engine.SelfHealingEngine;
+import com.vinayak.healing.execution.ExecutionRecorder;
 import com.vinayak.healing.execution.ExecutionTracker;
 import com.vinayak.healing.logging.HealingLogger;
 import com.vinayak.healing.model.FailureContext;
@@ -12,12 +13,15 @@ import com.vinayak.healing.validator.SuccessfulLocatorValidator;
 import java.util.List;
 import java.util.Set;
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 
-public class HealingWebDriver implements WebDriver {
+public class HealingWebDriver
+        implements WebDriver,
+                   JavascriptExecutor {
 
 
 private final WebDriver driver;
@@ -46,19 +50,52 @@ public HealingWebDriver(
 @Override
 public WebElement findElement(By locator) {
 
+        By runtimeHealedLocator =
+        SelfHealingEngine.getRuntimeHealedLocator(locator);
+
+if (runtimeHealedLocator != null) {
+
+    HealingLogger.debug(
+            "RUNTIME HEALED LOCATOR FOUND | old="
+                    + locator
+                    + " | new="
+                    + runtimeHealedLocator);
+
+    try {
+
+        WebElement runtimeElement =
+                driver.findElement(
+                        runtimeHealedLocator);
+
+        HealingLogger.debug(
+                "RUNTIME HEAL SUCCESS | locator="
+                        + runtimeHealedLocator
+                        + " | actualTag="
+                        + runtimeElement.getTagName());
+
+        return new HealingWebElement(
+                runtimeElement,
+                runtimeHealedLocator,
+                this);
+
+    } catch (Exception runtimeException) {
+
+        HealingLogger.debug(
+                "RUNTIME HEALED LOCATOR FAILED | "
+                        + runtimeHealedLocator);
+
+        // Continue with normal healing.
+    }
+}
+
     try {
 
         HealingLogger.debug(
                 "Finding locator : "
                         + locator);
 
-        WebElement element =
-                driver.findElement(locator);
-
-        /*
-         * The locator exists, but it may point to
-         * the wrong semantic element.
-         */
+WebElement element =
+        driver.findElement(locator);
 
 FailureContext context =
         failureContextFactory.build(
@@ -70,6 +107,8 @@ boolean suspicious =
                 .isSuspicious(
                         context,
                         element);
+
+
                         System.out.println("Suspicious = " + suspicious);
         if (suspicious) {
 
@@ -169,6 +208,8 @@ HealingLogger.debug(
                 + healedElement.getAttribute("data-test")
                 + " | id="
                 + healedElement.getAttribute("id"));
+
+               
 
             return new HealingWebElement(
                     healedElement,
@@ -420,6 +461,24 @@ public List<WebElement> findElementsWithHealing(
     }
 
     return List.of();
+}
+
+@Override
+public Object executeScript(
+        String script,
+        Object... args) {
+
+    return ((JavascriptExecutor) driver)
+            .executeScript(script, args);
+}
+
+@Override
+public Object executeAsyncScript(
+        String script,
+        Object... args) {
+
+    return ((JavascriptExecutor) driver)
+            .executeAsyncScript(script, args);
 }
 private boolean isNegativeWaitLookup() {
 

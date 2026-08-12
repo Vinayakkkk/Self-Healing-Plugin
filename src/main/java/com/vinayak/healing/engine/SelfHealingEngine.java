@@ -13,10 +13,13 @@ import org.openqa.selenium.NoSuchElementException;
 import com.vinayak.healing.validator.CachedLocatorValidator;
 
 import com.vinayak.healing.dom.XPathFallbackGenerator;
+import com.vinayak.healing.execution.ExecutionAction;
 import com.vinayak.healing.filter.CandidateFilter;
 import com.vinayak.healing.logging.HealingLogger;
 import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
+import com.vinayak.healing.outcome.engine.ExpectedOutcomeEngine;
+import com.vinayak.healing.outcome.model.OutcomeVerificationResult;
 import com.vinayak.healing.pipeline.HealingPipeline;
 import com.vinayak.healing.pipeline.PipelineResult;
 import com.vinayak.healing.repair.SourceCodeRepairEngine;
@@ -24,6 +27,7 @@ import com.vinayak.healing.report.HealingReportManager;
 import com.vinayak.healing.resolver.DuplicateResolver;
 
 import com.vinayak.healing.validator.CandidateValidator;
+import com.vinayak.healing.shadow.ShadowDomDetector;
 import com.vinayak.healing.shadow.ShadowDomHealingEngine;
 import com.vinayak.healing.iframe.IframeHealingEngine;
 import java.time.Duration;
@@ -43,9 +47,18 @@ import org.openqa.selenium.SearchContext;
 
 public class SelfHealingEngine {
 
+        private final HealingPipeline pipeline =
+        new HealingPipeline();
+
+        private final CandidateFilter candidateFilter =
+        new CandidateFilter();
+
         private final CollectionHealingEngine
         collectionHealingEngine =
         new CollectionHealingEngine();
+        private final ExpectedOutcomeEngine
+        expectedOutcomeEngine =
+        new ExpectedOutcomeEngine();
 
 private final ShadowDomHealingEngine
         shadowDomHealingEngine =
@@ -142,205 +155,7 @@ String cacheKey =
                 expectedIntentName,
                 failedLocator.toString());
 
-//                 By runtimeLocator =
-// RUNTIME_HEALED_LOCATORS.get(cacheKey);
 
-// if (runtimeLocator != null) {
-
-// List<WebElement> runtimeMatches =
-//         driver.findElements(runtimeLocator);
-
-// boolean validRuntimeLocator =
-//         runtimeMatches.size() == 1
-//                 && runtimeMatches.get(0).isDisplayed()
-//                 && runtimeMatches.get(0).isEnabled();
-
-// if (validRuntimeLocator) {
-
-//     System.out.println(
-//             "RUNTIME CACHE HIT");
-
-//     System.out.println(
-//             "Runtime locator : "
-//                     + runtimeLocator);
-
-//     lastSuccessfulLocator.set(
-//             runtimeLocator);
-
-//     HealingAnalytics.cacheHit();
-
-// //     int successfulHealCount =
-// //         HealingSuccessTracker.recordSuccess(
-// //                 cacheKey);
-
-// // System.out.println(
-// //         "Successful cached heal count : "
-// //                 + successfulHealCount);
-
-// // if (sourceRepairPolicy.canRepair(
-// //         successfulHealCount)) {
-
-// //     System.out.println(
-// //             "SOURCE REPAIR APPROVED FROM CACHE");
-
-    
-// //             repairSourceIfAllowed(
-// //         pageObjectPath,
-// //         declaration,
-// //         runtimeLocator);
-// // }
-
-//     HealingAnalytics.addHealingTime(
-//             System.currentTimeMillis()
-//                     - startTime);
-
-//     return runtimeMatches.get(0);
-// }
-
-// System.out.println(
-//         "STALE RUNTIME CACHE REMOVED : "
-//                 + cacheKey);
-
-// RUNTIME_HEALED_LOCATORS.remove(
-//         cacheKey);
-
-// }
-
-// =========================================================
-// PERSISTENT CACHE LOOKUP
-// =========================================================
-
-//               LocatorSuggestion cached =
-//         LocatorCache.get(cacheKey);
-
-// if (cached != null) {
-
-// By cachedLocator = null;
-// List<WebElement> cachedMatches =
-//         java.util.Collections.emptyList();
-
-// try {
-
-//     cachedLocator =
-//             LocatorBuilder.build(cached);
-
-//     cachedMatches =
-//             driver.findElements(cachedLocator);
-
-//     boolean validCachedLocator =
-//             cachedMatches.size() == 1
-//                     && cachedMatches.get(0).isDisplayed()
-//                     && cachedMatches.get(0).isEnabled();
-
-//     if (validCachedLocator) {
-
-//         WebElement element =
-//                 cachedMatches.get(0);
-
-//         lastSuccessfulLocator.set(
-//                 cachedLocator);
-
-//         HealingReportManager.logHealing(
-//                 pageObjectClass,
-//                 variableName,
-//                 context.getExpectedIntent().name(),
-//                 cacheKey,
-//                 failedLocator.toString(),
-//                 cachedLocator.toString(),
-//                 cached.getConfidence(),
-//                 "CACHE");
-
-//         System.out.println(
-//                 "CACHE HIT");
-
-//         System.out.println(
-//                 "Cache Key : "
-//                         + cacheKey);
-
-//         System.out.println(
-//                 "Cached locator : "
-//                         + cachedLocator);
-
-//         HealingAnalytics.cacheHit();
-
-// //         int successfulHealCount =
-// //         HealingSuccessTracker.recordSuccess(
-// //                 cacheKey);
-
-// // System.out.println(
-// //         "Successful cached heal count : "
-// //                 + successfulHealCount);
-
-// // if (sourceRepairPolicy.canRepair(
-// //         successfulHealCount)) {
-
-// //     System.out.println(
-// //             "SOURCE REPAIR APPROVED FROM PERSISTENT CACHE");
-
-// //     repairSourceIfAllowed(
-// //         pageObjectPath,
-// //         declaration,
-// //         cachedLocator);
-// // }
-
-//         HealingAnalytics.addHealingTime(
-//                 System.currentTimeMillis()
-//                         - startTime);
-
-//                         RUNTIME_HEALED_LOCATORS.put(
-//         cacheKey,
-//         cachedLocator);
-
-//         return element;
-//     }
-
-//     System.out.println(
-//             "STALE CACHE ENTRY DETECTED");
-
-//     System.out.println(
-//             "Cached locator : "
-//                     + cachedLocator);
-
-//     System.out.println(
-//             "Matched elements : "
-//                     + cachedMatches.size());
-
-//     if (cachedMatches.isEmpty()) {
-
-//         System.out.println(
-//                 "Reason : cached locator no longer exists");
-
-//     } else if (cachedMatches.size() > 1) {
-
-//         System.out.println(
-//                 "Reason : cached locator is not unique");
-
-//     } else {
-
-//         System.out.println(
-//                 "Reason : cached element is hidden or disabled");
-//     }
-
-// } catch (Exception exception) {
-
-//     System.out.println(
-//             "CACHE VALIDATION ERROR : "
-//                     + exception.getMessage());
-
-//     System.out.println(
-//             "Reason : cached locator could not be built or checked");
-// }
-
-// LocatorCache.remove(cacheKey);
-
-// RUNTIME_HEALED_LOCATORS.remove(
-//         cacheKey);
-
-// System.out.println(
-//         "STALE CACHE ENTRY REMOVED : "
-//                 + cacheKey);
-
-// }
 
 // =========================================================
 // PERSISTENT CACHE LOOKUP
@@ -362,11 +177,11 @@ if (cached != null) {
                 cachedLocator,
                 context);
 
-                System.out.println("\n===== CACHE CONTEXT =====");
+              if (DEBUG){  System.out.println("\n===== CACHE CONTEXT =====");
 System.out.println("Variable : " + context.getVariableName());
 System.out.println("Tag      : " + context.getExpectedTag());
 System.out.println("Intent   : " + context.getExpectedIntent());
-System.out.println("Action   : " + context.getFailedAction());
+System.out.println("Action   : " + context.getFailedAction());}
 
 if (validCachedLocator) {
 
@@ -446,8 +261,7 @@ if (cached == null) {
                     + cacheKey);
 }
 
-HealingPipeline pipeline =
-        new HealingPipeline();
+
 
 PipelineResult result =
         pipeline.execute(context);
@@ -461,7 +275,7 @@ List<LocatorCandidate> shadowCandidates =
         shadowDomHealingEngine.findCandidates(
                 driver,
                 context);
-
+if (DEBUG) {
                 System.out.println("\n===== SHADOW CANDIDATES =====");
 System.out.println("Count = " + shadowCandidates.size());
 
@@ -472,7 +286,7 @@ for (LocatorCandidate c : shadowCandidates) {
         + c.getLocatorValue()
         + " tag="
         + c.getTagName());
-}
+}}
 
 if (!shadowCandidates.isEmpty()) {
 
@@ -486,20 +300,30 @@ if (!shadowCandidates.isEmpty()) {
 /*
  * Validate AFTER merging all candidates.
  */
-LocatorCandidate resolvedCandidate =
-        duplicateResolver.resolve(
-                context,
-                candidates);
 
-LocatorCandidate validatedCandidate = null;
 
-if (resolvedCandidate != null) {
+LocatorCandidate validatedCandidate =
+        candidateValidator.validate(
+                driver,
+                candidates,
+                context);
 
-    validatedCandidate =
-            candidateValidator.validate(
-                    driver,
-                    List.of(resolvedCandidate),
-                    context);
+if (validatedCandidate == null) {
+
+   LocatorCandidate resolvedCandidate =
+            duplicateResolver.resolve(
+                    context,
+                    candidates);
+
+
+    if (resolvedCandidate != null) {
+
+       validatedCandidate =
+                candidateValidator.validate(
+                        driver,
+                        List.of(resolvedCandidate),
+                        context);
+    }
 }
 
         /*
@@ -511,8 +335,25 @@ if (resolvedCandidate != null) {
 
         if (validatedCandidate != null) {
 
+
+
     By candidateLocator =
             LocatorBuilder.build(validatedCandidate);
+
+            if (DEBUG) {
+
+            System.out.println("\n===== SAFETY CHECK =====");
+
+System.out.println(
+        "Locator = "
+        + candidateLocator);
+
+System.out.println(
+        "Unsafe = "
+        + isUnsafeGeneratedLocator(candidateLocator));}
+
+
+
 
     if (isUnsafeGeneratedLocator(candidateLocator)) {
 
@@ -576,9 +417,32 @@ if (resolvedCandidate != null) {
 }
     }
 }
+if (DEBUG) {
+System.out.println("\n===== VALIDATION RESULT =====");
 
+if (validatedCandidate == null) {
 
-                                
+    System.out.println("Validated Candidate : NULL");
+
+} else {
+
+    System.out.println("Validated Candidate : "
+            + validatedCandidate.getLocatorType()
+            + "="
+            + validatedCandidate.getLocatorValue());
+
+    System.out.println("Score : "
+            + validatedCandidate.getFinalScore());
+}}
+             
+if (DEBUG) {
+System.out.println("\n===== BEFORE DECISION ENGINE =====");
+
+System.out.println(
+        "validatedCandidate = "
+        + (validatedCandidate == null
+            ? "NULL"
+            : validatedCandidate.getLocatorValue()));}
 
   // ==========================
 // DIRECT HEALING
@@ -609,13 +473,7 @@ HealingLogger.debug(
         "Reason = "
                 + healingDecision.getReason());
 
-/*
- * LOW or REJECT candidates must not be
- * automatically healed.
- *
- * Setting validatedCandidate to null allows
- * the existing AI flow below to execute.
- */
+
 if (!healingDecision.isHealingAllowed()) {
 
     HealingLogger.debug(
@@ -660,6 +518,10 @@ RUNTIME_HEALED_LOCATORS.put(
         cacheKey,
         locator);
 
+        RUNTIME_HEALED_LOCATORS.put(
+        failedLocator.toString(),
+        locator);
+
     lastSuccessfulLocator.set(locator);
 
     LocatorSuggestion suggestion =
@@ -694,27 +556,6 @@ if (suggestion != null
 }
 
 
-
-//         int successfulHealCount =
-//         HealingSuccessTracker.recordSuccess(
-//                 cacheKey);
-
-// System.out.println(
-//         "Successful heal count : "
-//                 + successfulHealCount);
-
-// if (sourceRepairPolicy.canRepair(
-//         successfulHealCount)) {
-
-//     System.out.println(
-//             "SOURCE REPAIR APPROVED");
-
-//     repairSourceIfAllowed(
-//         pageObjectPath,
-//         declaration,
-//         locator);
-// }
-
   HealingReportManager.logHealing(
         pageObjectClass,
         variableName,
@@ -733,33 +574,49 @@ if (suggestion != null
 
 if (context.getPageObjectPath() != null
         && !context.getPageObjectPath().isBlank()) {
+  
 
     try {
 
         RepairReport report =
+
+        
                 sourceCodeRepairEngine.repair(
                         context,
                         suggestion);
 
-        if (report.isRepairSuccessful()) {
+if (report.isRepairSuccessful()) {
 
-            HealingLogger.info(
-                    "Page Object repaired : "
-                            + report.getPageObjectFile());
+    HealingLogger.info(
+            "Page Object repaired : "
+                    + report.getPageObjectFile());
 
-        } else {
+} else {
 
-            HealingLogger.warn(
-                    "Source repair failed : "
-                            + report.getMessage());
-        }
+    String message = report.getMessage();
 
-    } catch (Exception e) {
+    if (message != null
+            && message.contains(
+                    "parameterized dynamic locator method")) {
+
+        HealingLogger.info(
+                "Source repair skipped intentionally : "
+                        + message);
+
+    } else {
 
         HealingLogger.warn(
-                "Source repair skipped : "
-                        + e.getMessage());
+                "Source repair failed : "
+                        + message);
     }
+}
+
+} catch (Exception e) {
+
+    HealingLogger.warn(
+            "Source repair skipped : "
+                    + e.getMessage());
+}
 
 } else {
 
@@ -778,10 +635,6 @@ if (candidates == null) {
     candidates = java.util.Collections.emptyList();
 }
 
-
-
-CandidateFilter candidateFilter =
-        new CandidateFilter();
 
 List<LocatorCandidate> filteredCandidates =
         candidateFilter.filter(
@@ -810,219 +663,7 @@ if (filteredCandidates.isEmpty()) {
         CandidatePromptBuilder.build(
                 context,
                 filteredCandidates);
- /* 
-             List<AiElementChoice> choices =
-        new AiElementChoiceFinder()
-                .findChoices(
-                        driver,
-                        filteredCandidates);
 
-if (!choices.isEmpty()) {
-
-    String choicePrompt =
-            CandidatePromptBuilder.buildChoicePrompt(
-                    context,
-                    choices);
-
-    System.out.println(
-            "\n===== AI DUPLICATE CHOICE PROMPT =====\n"
-                    + choicePrompt);
-
-    String choiceResponse =
-            new AiModelClient()
-                    .ask(choicePrompt);
-
-    System.out.println(
-            "\n===== AI DUPLICATE CHOICE RESPONSE =====\n"
-                    + choiceResponse);
-
-    Integer selectedIndex =
-            new AiResponseParser()
-                    .parseCandidateIndex(
-                            choiceResponse);
-
-                            System.out.println(
-        "AI SELECTED INDEX = "
-                + selectedIndex);
-
-    if (selectedIndex != null) {
-
-        AiElementChoice selectedChoice =
-                choices.stream()
-                        .filter(choice ->
-                                choice.getIndex()
-                                        == selectedIndex)
-                        .findFirst()
-                        .orElse(null);
-
-                        System.out.println(
-        "AI SELECTED CHOICE = "
-                + (selectedChoice == null
-                ? "NULL"
-                : selectedChoice.getTag()
-                        + " | "
-                        + selectedChoice.getText()
-                        + " | "
-                        + selectedChoice.getParentHref()));
-
-        if (selectedChoice != null) {
-
-SelectedElementLocatorBuilder locatorBuilder =
-        new SelectedElementLocatorBuilder();
-
-By uniqueLocator =
-        locatorBuilder.build(
-                driver,
-                selectedChoice);
-
-if (uniqueLocator != null) {
-
-    System.out.println(
-            "AI UNIQUE LOCATOR = "
-                    + uniqueLocator);
-
-    List<WebElement> matched =
-            driver.findElements(uniqueLocator);
-
-    System.out.println(
-            "AI UNIQUE LOCATOR MATCH COUNT = "
-                    + matched.size());
-
-if (matched.size() == 1
-        && matched.get(0).isDisplayed()
-        && matched.get(0).isEnabled()) {
-
-    String uniqueLocatorValue =
-            uniqueLocator.toString()
-                    .replace("By.xpath: ", "");
-
-   if (isDynamicTextLocator(
-        "xpath",
-        uniqueLocatorValue)) {
-
-    System.out.println(
-            "AI duplicate-choice locator rejected: "
-                    + uniqueLocatorValue);
-
-    LocatorCandidate stableCandidate =
-            findBestStableCandidate(
-                    filteredCandidates);
-
-    if (stableCandidate != null) {
-
-        By stableLocator =
-                LocatorBuilder.build(
-                        stableCandidate);
-
-        List<WebElement> stableMatches =
-                driver.findElements(
-                        stableLocator);
-
-        if (stableMatches.size() == 1
-                && stableMatches.get(0).isDisplayed()
-                && stableMatches.get(0).isEnabled()) {
-
-            System.out.println(
-                    "STABLE CANDIDATE SELECTED AFTER "
-                            + "DYNAMIC AI REJECTION: "
-                            + stableLocator);
-
-            lastSuccessfulLocator.set(
-                    stableLocator);
-
-            RUNTIME_HEALED_LOCATORS.put(
-                    cacheKey,
-                    stableLocator);
-
-            LocatorSuggestion stableSuggestion =
-                    CandidateConverter.convert(
-                            stableCandidate);
-
-            stableSuggestion.setConfidence(
-                    stableCandidate.getFinalScore());
-
-            LocatorCache.put(
-                    cacheKey,
-                    stableSuggestion);
-
-            HealingReportManager.logHealing(
-                    pageObjectClass,
-                    variableName,
-                    context.getExpectedIntent().name(),
-                    cacheKey,
-                    failedLocator.toString(),
-                    stableLocator.toString(),
-                    stableCandidate.getFinalScore(),
-                    "STABLE_AFTER_DYNAMIC_AI_REJECTION");
-
-            HealingAnalytics.deterministicHeal();
-
-            HealingAnalytics.addHealingTime(
-                    System.currentTimeMillis()
-                            - startTime);
-
-            return stableMatches.get(0);
-        }
-    }
-
-} else {
-
-        WebElement selectedElement =
-        matched.get(0);
-
-By optimizedLocator =
-        new ValidatedElementLocatorOptimizer()
-                .chooseBestLocator(
-                        driver,
-                        selectedElement,
-                        uniqueLocator);
-
-System.out.println(
-        "AI OPTIMIZED LOCATOR = "
-                + optimizedLocator);
-
-lastSuccessfulLocator.set(
-        optimizedLocator);
-
-RUNTIME_HEALED_LOCATORS.put(
-        cacheKey,
-        optimizedLocator);
-
-LocatorSuggestion suggestion =
-        buildSuggestionFromBy(
-                optimizedLocator);
-
-suggestion.setConfidence(95.0);
-
-LocatorCache.put(
-        cacheKey,
-        suggestion);
-
-HealingReportManager.logHealing(
-        pageObjectClass,
-        variableName,
-        context.getExpectedIntent().name(),
-        cacheKey,
-        failedLocator.toString(),
-        optimizedLocator.toString(),
-        95.0,
-        "AI_DUPLICATE_CHOICE");
-
-HealingAnalytics.aiHeal();
-
-HealingAnalytics.addHealingTime(
-        System.currentTimeMillis()
-                - startTime);
-
-System.out.println(
-        "AI selected-element healing successful");
-
-return selectedElement;
-    }
-}
-}    }
-    }
-}*/
 
 String aiResponse;
 
@@ -1038,18 +679,16 @@ try {
 
     throw e;
 }
+if (DEBUG) {
 
-                        System.out.println(
-        "\n===== AI PROMPT =====\n");
+    System.out.println(
+            "\n===== AI PROMPT =====\n");
 
-        if (DEBUG) {
+    System.out.println(prompt);
 
-System.out.println(prompt);
-
-        }
-
-        System.out.println(
-                "\n================ AI RESPONSE ================\n");
+    System.out.println(
+            "\n================ AI RESPONSE ================\n");
+}
 
 LocatorSuggestion suggestion =
         new AiResponseParser()
@@ -1244,6 +883,14 @@ if (context.getPageObjectPath() != null
 return element;
         
     }
+    public WebElement heal(
+        WebDriver driver,
+        By failedLocator,
+        ExecutionAction action)
+        throws Exception {
+
+    return heal(driver, failedLocator);
+}
 
 private void waitForDomReady(
         WebDriver driver) {
@@ -1299,7 +946,7 @@ wait.until(webDriver -> {
                             });
                     }
 
-                    scan(document);
+                    scan(document.documentElement);
 
                     return count;
                     """))
@@ -1396,7 +1043,15 @@ private static final Map<String, By> RUNTIME_HEALED_LOCATORS =
         new ConcurrentHashMap<>();
 
 
+public static By getRuntimeHealedLocator(By failedLocator) {
 
+    if (failedLocator == null) {
+        return null;
+    }
+
+    return RUNTIME_HEALED_LOCATORS.get(
+            failedLocator.toString());
+}
 
 private boolean isUnsafeGeneratedLocator(
         By locator) {
@@ -1577,28 +1232,22 @@ private WebElement findElementWithShadowSupport(
         return elements.get(0);
     }
 
-    JavascriptExecutor js =
-            (JavascriptExecutor) driver;
 
-    List<WebElement> hosts =
-            driver.findElements(By.cssSelector("*"));
+
+   List<WebElement> hosts =
+        ShadowDomDetector.findShadowHosts(driver);
 
     for (WebElement host : hosts) {
 
         try {
 
-            Object hasShadow =
-                    js.executeScript(
-                            "return arguments[0].shadowRoot != null;",
-                            host);
-
-            if (!(hasShadow instanceof Boolean)
-                    || !((Boolean) hasShadow)) {
-                continue;
-            }
 
             SearchContext shadowRoot =
         host.getShadowRoot();
+
+        if (shadowRoot == null) {
+            continue;
+        }
 
 By shadowLocator = locator;
 
@@ -1643,10 +1292,6 @@ if (shadowElements.size() == 1) {
         }
     }
 
-    /*
- * Shadow DOM search failed.
- * Try iframe search before giving up.
- */
 WebElement iframeElement =
         iframeHealingEngine.findElement(
                 driver,

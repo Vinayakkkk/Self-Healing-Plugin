@@ -10,6 +10,8 @@ import org.jsoup.select.Elements;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Comparator;
+
+import com.vinayak.healing.generator.ContextAwareLocatorGenerator;
 import com.vinayak.healing.generator.UniqueLocatorGenerator;
 //import com.vinayak.healing.model.ContextInfo;
 import com.vinayak.healing.model.FailureContext;
@@ -17,6 +19,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import com.vinayak.healing.util.TokenParser;
 import com.vinayak.healing.analyzer.VariableAnalyzer;
+import com.vinayak.healing.dynamic.DynamicAttributeDetector;
+import com.vinayak.healing.dynamic.DynamicAttributeResult;
 import com.vinayak.healing.model.VariableInfo;
 import com.vinayak.healing.extractor.ElementFeatureExtractor;
 import com.vinayak.healing.model.ElementFeature;
@@ -29,22 +33,25 @@ import com.vinayak.healing.model.LocatorInfo;
 
 public class DomCandidateFinder {
 
-
+private final ContextAwareLocatorGenerator contextAwareLocatorGenerator =
+        new ContextAwareLocatorGenerator();
         private final DomContextAnalyzer analyzer =
         new DomContextAnalyzer();
    private final LocatorAnalyzer locatorAnalyzer =
         new LocatorAnalyzer();
         private final UniqueLocatorGenerator uniqueLocatorGenerator =
         new UniqueLocatorGenerator();
+       
 
-// private final ContextBuilder contextBuilder =
-//         new ContextBuilder();
-
-// private final CandidateRanker candidateRanker =
-//         new CandidateRanker();
-
-                private final VariableAnalyzer variableAnalyzer =
+private final VariableAnalyzer variableAnalyzer =
         new VariableAnalyzer();
+
+
+
+private final DynamicAttributeDetector dynamicAttributeDetector =
+        new DynamicAttributeDetector();
+
+   
 
 private final ElementFeatureExtractor extractor =
         new ElementFeatureExtractor();
@@ -370,12 +377,42 @@ for (LocatorCandidate c : candidates) {
     }
 }
 populateLocatorUniqueness(document, candidates);
+
 candidates = removeDuplicateCandidates(candidates);
 
-        candidates.sort(
-                Comparator.comparingDouble(
-        LocatorCandidate::getFinalScore)
-                        .reversed());
+/*
+ * Generate additional context-aware locators.
+ */
+List<LocatorCandidate> generatedCandidates =
+        new ArrayList<>();
+
+for (LocatorCandidate candidate : candidates) {
+
+    generatedCandidates.addAll(
+            contextAwareLocatorGenerator.generate(
+                    context,
+                    candidate));
+}
+
+/*
+ * Merge generated candidates.
+ */
+candidates.addAll(generatedCandidates);
+
+/*
+ * Remove duplicates again because the generated
+ * locator may already exist.
+ */
+candidates = removeDuplicateCandidates(candidates);
+
+populateLocatorUniqueness(
+        document,
+        candidates);
+
+candidates.sort(
+        Comparator.comparingDouble(
+                LocatorCandidate::getFinalScore)
+                .reversed());
 
      System.out.println("\n===== FINAL DOM CANDIDATES =====");
 System.out.println("Total : " + candidates.size());
@@ -507,7 +544,22 @@ LocatorCandidate candidate =
                 parentTag,
                 parentClass,
                 parentId);
+DynamicAttributeResult dynamicResult =
+        dynamicAttributeDetector.analyze(
+                locatorType,
+                locatorValue);
 
+candidate.setDynamicAttribute(
+        dynamicResult.isDynamic());
+
+candidate.setDynamicPatternType(
+        dynamicResult.getPatternType());
+
+candidate.setNormalizedLocatorValue(
+        dynamicResult.getNormalizedValue());
+
+candidate.setStabilityScore(
+        dynamicResult.getStabilityScore());
                
 
 double finalScore = score;
@@ -528,12 +580,10 @@ if(context != null
     }
 }
 
-if(context != null
-        && context.getExpectedIntent()
-        == ElementIntent.BUTTON) {
+if (context != null
+        && context.getExpectedIntent() == ElementIntent.BUTTON) {
 
-    if(element.tagName().equalsIgnoreCase("button")
-            || "submit".equalsIgnoreCase(element.attr("type"))) {
+    if (determineIntent(element) == ElementIntent.BUTTON) {
 
         finalScore += 75;
 
@@ -591,8 +641,10 @@ if(tag.equals("main")) {
     finalScore -= 20;
 }
 
-       if(context != null
-        && context.getVariableName() != null) {
+      if (context != null
+        && variableInfo != null
+        && context.getVariableName() != null
+        && !context.getVariableName().isBlank()) {
 
 String domContext =
         analyzer.getFullContext(
@@ -611,21 +663,13 @@ String searchableText =
         + element.attr("data-qa") + " "
         + element.attr("data-cy") + " "
         + domContext;
+        searchableText += " "
+        + element.text();
 
-nearestLabel = "";
+nearestLabel =
+        findClosestSemanticLabel(element);
 
-if(element.tagName().equalsIgnoreCase("input")
-        || element.tagName().equalsIgnoreCase("textarea")
-        || element.tagName().equalsIgnoreCase("select")) {
-
-   nearestLabel =
-        findClosestLabel(element);
-
-        System.out.println("\n========== LABEL DEBUG ==========");
-System.out.println("Locator      : " + locatorType + "=" + locatorValue);
-System.out.println("Variable     : " + context.getVariableName());
-System.out.println("NearestLabel : " + nearestLabel);
-System.out.println("Tag          : " + element.tagName());
+if (!nearestLabel.isBlank()) {
 
     searchableText += " " + nearestLabel;
 }
@@ -633,8 +677,10 @@ System.out.println("Tag          : " + element.tagName());
 String variableName =
         context.getVariableName();
 
-       List<String> variableTokens =
-        variableInfo.getTokens();
+      List<String> variableTokens =
+        variableInfo == null
+                ? List.of()
+                : variableInfo.getTokens();
 
         List<String> labelTokens =
         TokenParser.parse(nearestLabel);
@@ -744,13 +790,21 @@ candidate.setFinalScore(
        candidate.setNearestLabel(
         nearestLabel);
 
-        candidate.setElementText(element.ownText().trim());
+        candidate.setElementText(
+        element.text().trim());
 
 candidate.setPlaceholder(
         element.attr("placeholder"));
 
 candidate.setAriaLabel(
         element.attr("aria-label"));
+
+        candidate.setParentTag(parentTag);
+
+candidate.setParentId(parentId);
+
+candidate.setParentClass(parentClass);
+
 
 candidate.setId(
         element.id());
@@ -902,8 +956,7 @@ String labelText = nearestLabel;
 if (labelText == null
         || labelText.isBlank()) {
 
-    labelText = findClosestLabel(
-            element);
+    labelText = findClosestSemanticLabel(element);
 }
 
 if (labelText == null
@@ -1482,16 +1535,18 @@ if (context.getExpectedIntent()
 }
 
 
-
-private String findClosestLabel(Element element) {
+private String findClosestSemanticLabel(Element element) {
 
     if (element == null) {
         return "";
     }
 
-    // 1. Standard HTML relationship:
-    // <label for="employee-name">Employee Name</label>
-    // <input id="employee-name">
+    /*
+     * 1. Explicit HTML association:
+     *
+     * <label for="username">Username</label>
+     * <input id="username">
+     */
     String id = element.id();
 
     if (id != null && !id.isBlank()) {
@@ -1499,9 +1554,7 @@ private String findClosestLabel(Element element) {
         Element linkedLabel =
                 element.ownerDocument()
                         .selectFirst(
-                                "label[for='"
-                                        + id
-                                        + "']");
+                                "label[for='" + id + "']");
 
         if (linkedLabel != null
                 && !linkedLabel.text().isBlank()) {
@@ -1510,31 +1563,45 @@ private String findClosestLabel(Element element) {
         }
     }
 
-Element current = element.parent();
+    /*
+     * 2. Element wrapped directly by a label:
+     *
+     * <label>
+     *     Username
+     *     <input>
+     * </label>
+     */
+    Element wrappedLabel =
+            element.closest("label");
 
-for (int level = 0;
-        level < 5 && current != null;
-        level++) {
+    if (wrappedLabel != null
+            && wrappedLabel.tagName()
+                    .equalsIgnoreCase("label")) {
 
-    Element label =
-            current.selectFirst("label");
+        String text =
+                wrappedLabel.text().trim();
 
-    if (label != null
-            && !label.text().isBlank()) {
-
-        return label.text().trim();
+        if (!text.isBlank()) {
+            return text;
+        }
     }
 
-    current = current.parent();
-}
-
-
+    /*
+     * 3. Immediate previous sibling.
+     *
+     * Example:
+     *
+     * <label>Username</label>
+     * <input>
+     *
+     * Do NOT search arbitrary descendants.
+     */
     Element parent = element.parent();
 
     if (parent != null) {
 
         Element previous =
-                parent.previousElementSibling();
+                element.previousElementSibling();
 
         if (previous != null) {
 
@@ -1555,6 +1622,39 @@ for (int level = 0;
             }
         }
     }
+
+    /*
+     * 4. Fieldset / legend relationship.
+     */
+    Element fieldset =
+            element.closest("fieldset");
+
+    if (fieldset != null) {
+
+        Element legend =
+                fieldset.selectFirst("legend");
+
+        if (legend != null
+                && !legend.text().isBlank()) {
+
+            return legend.text().trim();
+        }
+    }
+
+    /*
+     * 5. Do NOT search arbitrary labels in ancestors.
+     *
+     * That can associate unrelated labels with this element.
+     *
+     * Example:
+     *
+     * <label>Accepted usernames are:</label>
+     * ...
+     * <input id="login-button">
+     *
+     * The input must NOT receive
+     * "Accepted usernames are:" as its label.
+     */
 
     return "";
 }
@@ -1779,8 +1879,8 @@ private double variableScore(
             break;
 
         } else if (!matched &&
-                (candidate.startsWith(variable)
-                 || variable.startsWith(candidate))) {
+        (candidate.contains(variable)
+         || variable.contains(candidate))) {
 
             score += 75;
             matched = true;
@@ -2139,20 +2239,74 @@ private void addCollectionCandidates(
         }
 
         LocatorCandidate candidate =
-                new LocatorCandidate(
-                        "css",
-                        "#" + element.id() + " > " + firstTag,
-                        firstTag,
-                        "",
-                        ElementIntent.TEXT,
-                        600,
-                        element.tagName(),
-                        element.className(),
-                        element.id());
+        new LocatorCandidate(
+                "css",
+                "#" + element.id() + " > " + firstTag,
+                firstTag,
+                "",
+                ElementIntent.TEXT,
+                600,
+                element.tagName(),
+                element.className(),
+                element.id());
 
-        candidate.setFinalScore(600);
+candidate.setFinalScore(600);
 
-        candidates.add(candidate);
+/*
+ * Populate semantic context
+ */
+String nearestLabel =
+        findClosestSemanticLabel(element);
+
+candidate.setNearestLabel(
+        nearestLabel);
+
+candidate.setElementText(
+        element.text().trim());
+
+candidate.setPlaceholder(
+        element.attr("placeholder"));
+
+candidate.setAriaLabel(
+        element.attr("aria-label"));
+
+candidate.setId(
+        element.id());
+
+candidate.setName(
+        element.attr("name"));
+
+candidate.setParentTag(
+        element.tagName());
+
+candidate.setParentClass(
+        element.className());
+
+candidate.setParentId(
+        element.id());
+
+candidates.add(candidate);
     }
+}
+private String findNearestHeading(Element element) {
+
+    Element current = element.parent();
+
+    while (current != null) {
+
+        Element heading =
+                current.selectFirst(
+                        "h1,h2,h3,h4,h5,h6");
+
+        if (heading != null
+                && !heading.text().isBlank()) {
+
+            return heading.text().trim();
+        }
+
+        current = current.parent();
+    }
+
+    return "";
 }
 }

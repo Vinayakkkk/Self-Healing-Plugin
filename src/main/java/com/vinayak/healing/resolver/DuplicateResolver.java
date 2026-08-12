@@ -72,7 +72,7 @@ public class DuplicateResolver {
         return scoreGap <= DUPLICATE_SCORE_GAP;
     }
 
-    private List<LocatorCandidate> getDuplicateCandidates(
+    public List<LocatorCandidate> getDuplicateCandidates(
             List<LocatorCandidate> candidates) {
 
         if (candidates == null || candidates.isEmpty()) {

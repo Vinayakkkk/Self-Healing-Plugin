@@ -1,0 +1,26 @@
+package com.vinayak.healing.outcome.model;
+
+public enum OutcomeSignal {
+
+   EXPECTED_URL_REACHED,
+
+    EXPECTED_TITLE_REACHED,
+
+    DOM_CHANGED,
+
+    EXPECTED_ELEMENT_FOUND,
+
+    EXPECTED_ELEMENT_NOT_FOUND,
+
+    EXECUTION_FLOW_MATCH,
+
+    EXECUTION_FLOW_MISMATCH,
+
+    CONTEXT_MATCH,
+
+    CONTEXT_MISMATCH,
+
+    ACTION_SUCCESS,
+
+    ACTION_FAILED
+}

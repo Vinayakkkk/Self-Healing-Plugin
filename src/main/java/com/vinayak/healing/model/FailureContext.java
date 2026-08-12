@@ -1,6 +1,10 @@
 package com.vinayak.healing.model;
 import com.vinayak.healing.execution.ExecutionContext;
+import com.vinayak.healing.expected.ExpectedContext;
 import com.vinayak.healing.intent.ElementIntent;
+import com.vinayak.healing.outcome.model.ExpectedElement;
+import com.vinayak.healing.outcome.model.ExpectedOutcomeAction;
+
 import java.util.ArrayList;
 import java.util.List;
 import org.openqa.selenium.WebDriver;
@@ -14,11 +18,33 @@ private ExecutionContext executionContext;
     private ElementIntent expectedIntent;
     private String variableName;
     private String expectedTag;
+    private ExpectedContext expectedContext;
     private String pageObjectPath;
     private String locatorTextHint;
     private String locatorDeclaration;
     private WebDriver driver;
     private String currentUrl;
+    private String previousUrl;
+    private String parentTag;
+
+private String parentId;
+
+private String parentClass;
+
+private String nearestLabel;
+
+private List<String> neighbourTexts =
+        new ArrayList<>();
+
+private String expectedUrl;
+
+private String expectedTitle;
+
+private List<ExpectedElement> expectedElements =
+        new ArrayList<>();
+
+private ExpectedOutcomeAction expectedOutcomeAction =
+        ExpectedOutcomeAction.UNKNOWN;
     private String expectedLabel;
     private String expectedText;
     
@@ -27,7 +53,58 @@ private ExecutionContext executionContext;
     private List<CandidateElement> candidates =
         new ArrayList<>();
     
-    
+    // ======================================================
+// DOM Context
+// ======================================================
+public ExpectedContext getExpectedContext() {
+    return expectedContext;
+}
+
+public void setExpectedContext(
+        ExpectedContext expectedContext) {
+    this.expectedContext = expectedContext;
+}
+public String getParentTag() {
+    return parentTag;
+}
+
+public void setParentTag(String parentTag) {
+    this.parentTag = parentTag;
+}
+
+public String getParentId() {
+    return parentId;
+}
+
+public void setParentId(String parentId) {
+    this.parentId = parentId;
+}
+
+public String getParentClass() {
+    return parentClass;
+}
+
+public void setParentClass(String parentClass) {
+    this.parentClass = parentClass;
+}
+
+public String getNearestLabel() {
+    return nearestLabel;
+}
+
+public void setNearestLabel(String nearestLabel) {
+    this.nearestLabel = nearestLabel;
+}
+
+public List<String> getNeighbourTexts() {
+    return neighbourTexts;
+}
+
+public void setNeighbourTexts(
+        List<String> neighbourTexts) {
+
+    this.neighbourTexts = neighbourTexts;
+}
     
 public ExecutionAction getFailedAction() {
     return failedAction;
@@ -101,6 +178,51 @@ public void setException(Throwable exception) {
 
 public void setCurrentUrl(String currentUrl) {
     this.currentUrl = currentUrl;
+}
+
+public String getPreviousUrl() {
+    return previousUrl;
+}
+
+public void setPreviousUrl(String previousUrl) {
+    this.previousUrl = previousUrl;
+}
+
+public String getExpectedUrl() {
+    return expectedUrl;
+}
+
+public void setExpectedUrl(String expectedUrl) {
+    this.expectedUrl = expectedUrl;
+}
+
+public String getExpectedTitle() {
+    return expectedTitle;
+}
+
+public void setExpectedTitle(String expectedTitle) {
+    this.expectedTitle = expectedTitle;
+}
+
+public List<ExpectedElement> getExpectedElements()  {
+    return expectedElements;
+}
+
+public void setExpectedElements(
+        List<ExpectedElement> expectedElements) {
+
+    this.expectedElements = expectedElements;
+}
+
+public ExpectedOutcomeAction getExpectedOutcomeAction() {
+    return expectedOutcomeAction;
+}
+
+public void setExpectedOutcomeAction(
+        ExpectedOutcomeAction expectedOutcomeAction) {
+
+    this.expectedOutcomeAction =
+            expectedOutcomeAction;
 }
 
     public ExecutionContext getExecutionContext() {

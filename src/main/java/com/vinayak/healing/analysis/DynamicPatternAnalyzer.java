@@ -1,15 +1,15 @@
 package com.vinayak.healing.analysis;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
+import com.vinayak.healing.dynamic.DynamicAttributeDetector;
+import com.vinayak.healing.dynamic.DynamicAttributeResult;
 import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
 
 public class DynamicPatternAnalyzer {
 
-    private static final Pattern NUMERIC_PATTERN =
-            Pattern.compile("^(.*?)(\\d+)(.*?)$");
+ private final DynamicAttributeDetector detector =
+        new DynamicAttributeDetector();
 
     public double calculateDynamicScore(
             FailureContext context,
@@ -58,63 +58,48 @@ public class DynamicPatternAnalyzer {
                 220);
     }
 
-    private double scorePattern(
-            String failedLocator,
-            String candidateValue,
-            double score) {
+private double scorePattern(
+        String failedLocator,
+        String candidateValue,
+        double score) {
 
-        if (failedLocator == null || candidateValue == null) {
-            return 0;
-        }
+    if (failedLocator == null || candidateValue == null) {
+        return 0;
+    }
 
-        String failed =
-                normalize(
-                        extractLocatorValue(
-                                failedLocator));
+    failedLocator = extractLocatorValue(failedLocator);
 
-        String candidate =
-                normalize(candidateValue);
+    DynamicAttributeResult failed =
+            detector.analyze("locator", failedLocator);
 
-        if (failed.isBlank()
-                || candidate.isBlank()) {
-            return 0;
-        }
+    DynamicAttributeResult candidate =
+            detector.analyze("locator", candidateValue);
 
-        if (failed.equals(candidate)) {
-            return 0;
-        }
-
-        if (isSameNumericPattern(failed, candidate)) {
-            return score;
-        }
+    /*
+     * Exact match doesn't need dynamic bonus.
+     */
+    if (normalize(failed.getOriginalValue())
+            .equals(normalize(candidate.getOriginalValue()))) {
 
         return 0;
     }
 
-    private boolean isSameNumericPattern(
-            String left,
-            String right) {
+    /*
+     * Compare normalized dynamic values.
+     */
+ if (failed.getPatternType() != null
+        && failed.getPatternType() != com.vinayak.healing.dynamic.DynamicPatternType.NONE
+        && failed.getPatternType() == candidate.getPatternType()
+        && normalize(failed.getNormalizedValue())
+                .equals(normalize(candidate.getNormalizedValue()))) {
 
-        Matcher leftMatcher =
-                NUMERIC_PATTERN.matcher(left);
+    return score;
+}
 
-        Matcher rightMatcher =
-                NUMERIC_PATTERN.matcher(right);
+    return 0;
+}
 
-        if (!leftMatcher.matches()
-                || !rightMatcher.matches()) {
-            return false;
-        }
 
-        String leftPrefix = leftMatcher.group(1);
-        String leftSuffix = leftMatcher.group(3);
-
-        String rightPrefix = rightMatcher.group(1);
-        String rightSuffix = rightMatcher.group(3);
-
-        return leftPrefix.equals(rightPrefix)
-                && leftSuffix.equals(rightSuffix);
-    }
 
     private String extractLocatorValue(
             String locator) {
@@ -127,11 +112,14 @@ public class DynamicPatternAnalyzer {
 
         return locator.trim();
     }
+private String normalize(String value) {
 
-    private String normalize(String value) {
-
-        return value
-                .toLowerCase()
-                .replaceAll("[^a-z0-9]", "");
+    if (value == null) {
+        return "";
     }
+
+    return value
+            .toLowerCase()
+            .replaceAll("[^a-z0-9]", "");
+}
 }

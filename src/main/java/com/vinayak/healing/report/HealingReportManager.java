@@ -40,6 +40,14 @@ private static final String REPORT_FILE =
         boolean cacheAllowed,
         String source){
 
+                System.out.println(
+        "REPORT EVENT -> "
+                + pageObjectClass
+                + " | "
+                + variableName
+                + " | "
+                + healedLocator);
+
         try {
 
             File reportFile =
@@ -93,6 +101,14 @@ private static final String REPORT_FILE =
                     .writeValue(
                             reportFile,
                             events);
+
+                            System.out.println(
+        "REPORT SAVED : "
+                + reportFile.getAbsolutePath());
+
+System.out.println(
+        "TOTAL EVENTS : "
+                + events.size());
 
         } catch (Exception e) {
 

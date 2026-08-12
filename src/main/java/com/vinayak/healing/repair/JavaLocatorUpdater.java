@@ -12,29 +12,69 @@ public class JavaLocatorUpdater {
     public boolean updateLocator(
             Path javaFile,
             String variableName,
+            String locatorDeclaration,
             LocatorSuggestion suggestion)
             throws IOException {
 
-        validate(javaFile, variableName, suggestion);
+        validate(
+                javaFile,
+                variableName,
+                suggestion);
 
         String source =
                 Files.readString(
                         javaFile,
                         StandardCharsets.UTF_8);
 
-        int variableIndex =
-                findVariableDeclaration(
-                        source,
-                        variableName);
+        /*
+         * =====================================================
+         * STEP 1
+         * Try normal/static locator field repair.
+         * =====================================================
+         */
 
-        if (variableIndex == -1) {
+        int declarationIndex =
+                source.indexOf(variableName);
+
+        if (declarationIndex == -1) {
             return false;
         }
+
+        /*
+         * =====================================================
+         * STEP 2
+         * Detect whether the locator is a method.
+         *
+         * Example:
+         *
+         * private By productNameLocator(String productName)
+         * =====================================================
+         */
+
+        if (isMethodDeclaration(
+                source,
+                declarationIndex)) {
+
+            return updateDynamicLocatorMethod(
+                    source,
+                    javaFile,
+                    declarationIndex,
+                    variableName,
+                    locatorDeclaration,
+                    suggestion);
+        }
+
+        /*
+         * =====================================================
+         * STEP 3
+         * Existing static locator repair.
+         * =====================================================
+         */
 
         int equalIndex =
                 findAssignmentOperator(
                         source,
-                        variableIndex);
+                        declarationIndex);
 
         if (equalIndex == -1) {
             return false;
@@ -63,9 +103,12 @@ public class JavaLocatorUpdater {
                         suggestion);
 
         String updatedSource =
-                source.substring(0, locatorStart)
-                        + newLocator
-                        + source.substring(locatorEnd);
+                source.substring(
+                        0,
+                        locatorStart)
+                + newLocator
+                + source.substring(
+                        locatorEnd);
 
         if (updatedSource.equals(source)) {
             return false;
@@ -77,6 +120,223 @@ public class JavaLocatorUpdater {
                 StandardCharsets.UTF_8);
 
         return true;
+    }
+
+    /*
+     * =========================================================
+     * Detect dynamic locator method.
+     * =========================================================
+     */
+    private boolean isMethodDeclaration(
+            String source,
+            int variableIndex) {
+
+        int lineEnd =
+                source.indexOf(
+                        '{',
+                        variableIndex);
+
+        int semicolon =
+                source.indexOf(
+                        ';',
+                        variableIndex);
+
+        /*
+         * If '(' appears before '=' or ';',
+         * this is most likely a method declaration.
+         */
+        int openingParenthesis =
+                source.indexOf(
+                        '(',
+                        variableIndex);
+
+        if (openingParenthesis == -1) {
+            return false;
+        }
+
+        if (semicolon != -1
+                && semicolon < openingParenthesis) {
+
+            return false;
+        }
+
+        if (lineEnd != -1
+                && lineEnd < openingParenthesis) {
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /*
+     * =========================================================
+     * Dynamic locator method handling.
+     * =========================================================
+     */
+    private boolean updateDynamicLocatorMethod(
+            String source,
+            Path javaFile,
+            int declarationIndex,
+            String variableName,
+            String locatorDeclaration,
+            LocatorSuggestion suggestion)
+            throws IOException {
+
+        System.out.println(
+                ">>> DYNAMIC LOCATOR METHOD DETECTED");
+
+        System.out.println(
+                "Method : "
+                        + variableName);
+
+        /*
+         * A dynamic method may depend on parameters.
+         *
+         * Example:
+         *
+         * productNameLocator(String productName)
+         *
+         * We must NOT replace its body with a locator
+         * that is specific to only the current element.
+         */
+
+        if (containsMethodParameter(
+                source,
+                declarationIndex)) {
+
+            System.out.println(
+                    "[HEALING INFO] Dynamic locator "
+                    + "method contains parameters.");
+
+            System.out.println(
+                    "[HEALING INFO] Source repair skipped "
+                    + "to preserve dynamic behavior.");
+
+            return false;
+        }
+
+        /*
+         * Parameterless method returning By can safely
+         * be treated as a locator method.
+         */
+
+        int returnIndex =
+                findReturnStatement(
+                        source,
+                        declarationIndex);
+
+        if (returnIndex == -1) {
+            return false;
+        }
+
+        int locatorStart =
+                findLocatorStart(
+                        source,
+                        returnIndex);
+
+        if (locatorStart == -1) {
+            return false;
+        }
+
+        int locatorEnd =
+                findLocatorEnd(
+                        source,
+                        locatorStart);
+
+        if (locatorEnd == -1) {
+            return false;
+        }
+
+        String newLocator =
+                buildLocatorExpression(
+                        suggestion);
+
+        String updatedSource =
+                source.substring(
+                        0,
+                        locatorStart)
+                + newLocator
+                + source.substring(
+                        locatorEnd);
+
+        if (updatedSource.equals(source)) {
+            return false;
+        }
+
+        Files.writeString(
+                javaFile,
+                updatedSource,
+                StandardCharsets.UTF_8);
+
+        return true;
+    }
+
+    /*
+     * =========================================================
+     * Detect method parameters.
+     *
+     * Example:
+     *
+     * productNameLocator(String productName)
+     *
+     * =========================================================
+     */
+    private boolean containsMethodParameter(
+            String source,
+            int declarationIndex) {
+
+        int openingParenthesis =
+                source.indexOf(
+                        '(',
+                        declarationIndex);
+
+        if (openingParenthesis == -1) {
+            return false;
+        }
+
+        int closingParenthesis =
+                source.indexOf(
+                        ')',
+                        openingParenthesis);
+
+        if (closingParenthesis == -1) {
+            return false;
+        }
+
+        String parameters =
+                source.substring(
+                        openingParenthesis + 1,
+                        closingParenthesis)
+                        .trim();
+
+        return !parameters.isBlank();
+    }
+
+    /*
+     * =========================================================
+     * Find return statement inside dynamic method.
+     * =========================================================
+     */
+    private int findReturnStatement(
+            String source,
+            int declarationIndex) {
+
+        int methodStart =
+                source.indexOf(
+                        '{',
+                        declarationIndex);
+
+        if (methodStart == -1) {
+            return -1;
+        }
+
+        int returnIndex =
+                source.indexOf(
+                        "return",
+                        methodStart);
+
+        return returnIndex;
     }
 
     private void validate(
@@ -109,55 +369,10 @@ public class JavaLocatorUpdater {
         }
     }
 
-    /**
-     * Finds:
-     *
-     * private By username =
-     *
-     * returns index of username.
-     */
-    private int findVariableDeclaration(
-            String source,
-            String variableName) {
-
-        int searchIndex = 0;
-
-        while (true) {
-
-            searchIndex =
-                    source.indexOf(
-                            variableName,
-                            searchIndex);
-
-            if (searchIndex == -1) {
-                return -1;
-            }
-
-            boolean leftOk =
-                    searchIndex == 0
-                            || !Character.isJavaIdentifierPart(
-                                    source.charAt(searchIndex - 1));
-
-            int end =
-                    searchIndex
-                            + variableName.length();
-
-            boolean rightOk =
-                    end >= source.length()
-                            || !Character.isJavaIdentifierPart(
-                                    source.charAt(end));
-
-            if (leftOk && rightOk) {
-                return searchIndex;
-            }
-
-            searchIndex =
-                    end;
-        }
-    }
-
-    /**
+    /*
+     * =========================================================
      * Finds '=' after variable.
+     * =========================================================
      */
     private int findAssignmentOperator(
             String source,
@@ -179,43 +394,24 @@ public class JavaLocatorUpdater {
         return -1;
     }
 
-    /**
-     * Finds start of By...
+    /*
+     * =========================================================
+     * Finds By... after assignment.
+     * =========================================================
      */
     private int findLocatorStart(
             String source,
             int assignmentIndex) {
 
-        int byIndex =
-                source.indexOf(
-                        "By.",
-                        assignmentIndex);
-
-        return byIndex;
+        return source.indexOf(
+                "By.",
+                assignmentIndex);
     }
-        /**
-     * Finds the end of the locator expression.
-     *
-     * Supports:
-     *
-     * By.id(...)
-     * By.name(...)
-     * By.xpath(...)
-     * By.cssSelector(...)
-     * By.className(...)
-     * By.tagName(...)
-     * By.linkText(...)
-     * By.partialLinkText(...)
-     *
-     * Works for:
-     *
-     * By.id("user");
-     *
-     * By.xpath(
-     *      "//input[@id='user']");
-     *
-     * By.cssSelector(
-     *      "[placeholder='Search']");
+
+    /*
+     * =========================================================
+     * Finds end of By(...) expression.
+     * =========================================================
      */
     private int findLocatorEnd(
             String source,
@@ -232,9 +428,6 @@ public class JavaLocatorUpdater {
 
             char c = source.charAt(i);
 
-            /*
-             * Handle quoted strings.
-             */
             if (insideQuotes) {
 
                 if (c == quoteChar
@@ -250,12 +443,10 @@ public class JavaLocatorUpdater {
 
                 insideQuotes = true;
                 quoteChar = c;
+
                 continue;
             }
 
-            /*
-             * Count parentheses.
-             */
             if (c == '(') {
                 parentheses++;
             }
@@ -264,32 +455,9 @@ public class JavaLocatorUpdater {
 
                 parentheses--;
 
-                /*
-                 * End of By(...) expression.
-                 */
                 if (parentheses == 0) {
 
-                    int index = i + 1;
-
-                    /*
-                     * Skip whitespace.
-                     */
-                    while (index < source.length()
-                            && Character.isWhitespace(
-                                    source.charAt(index))) {
-
-                        index++;
-                    }
-
-                    /*
-                     * Skip semicolon.
-                     */
-                   /*
- * Do NOT consume the semicolon.
- * Return the position immediately after ')'.
- * The existing ';' remains in the source.
- */
-return i + 1;
+                    return i + 1;
                 }
             }
         }
@@ -297,12 +465,10 @@ return i + 1;
         return -1;
     }
 
-    /**
-     * Builds a Selenium locator expression.
-     *
-     * Example:
-     *
-     * By.id("username")
+    /*
+     * =========================================================
+     * Builds Selenium locator expression.
+     * =========================================================
      */
     private String buildLocatorExpression(
             LocatorSuggestion suggestion) {
@@ -367,13 +533,16 @@ return i + 1;
         }
     }
 
-    /**
-     * Escapes Java string literals.
+    /*
+     * =========================================================
+     * Escape Java string.
+     * =========================================================
      */
     private String escapeJavaString(
             String value) {
 
-        return value
-                .replace("\"", "\\\"");
+        return value.replace(
+                "\"",
+                "\\\"");
     }
 }

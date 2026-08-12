@@ -177,9 +177,25 @@ for (LocatorCandidate candidate : filtered) {
     String key =
             buildCandidateKey(candidate);
 
-    uniqueCandidates.putIfAbsent(
-            key,
-            candidate);
+    LocatorCandidate existing =
+            uniqueCandidates.get(key);
+
+    if (existing == null) {
+
+        uniqueCandidates.put(
+                key,
+                candidate);
+
+        continue;
+    }
+
+    if (candidate.getFinalScore()
+            > existing.getFinalScore()) {
+
+        uniqueCandidates.put(
+                key,
+                candidate);
+    }
 }
 
 filtered =

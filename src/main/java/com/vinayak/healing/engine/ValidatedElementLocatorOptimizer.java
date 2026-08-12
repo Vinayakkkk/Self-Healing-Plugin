@@ -161,34 +161,82 @@ if (isUsable(className)
         return null;
     }
 
-    private WebElement findClickableParent(
-            WebElement element) {
+private WebElement findClickableParent(
+        WebElement element) {
 
-        WebElement current = element;
+    WebElement current = element;
 
-        for (int level = 0; level < 4; level++) {
+    for (int level = 0;
+         level < 4 && current != null;
+         level++) {
 
-            try {
-                String tag =
-                        current.getTagName();
+        try {
 
-                if ("a".equalsIgnoreCase(tag)
-                        || "button".equalsIgnoreCase(tag)) {
+            String tag =
+                    current.getTagName();
 
-                    return current;
-                }
+            if (("a".equalsIgnoreCase(tag)
+        || "button".equalsIgnoreCase(tag))
+        && isActionableParent(current)) {
 
-                current =
-                        current.findElement(
-                                By.xpath(".."));
+    if (current.findElements(
+            By.xpath(".//*"))
+            .contains(element)) {
 
-            } catch (Exception exception) {
-                return null;
-            }
+        return current;
+    }
+}
+
+            current =
+                    current.findElement(
+                            By.xpath(".."));
+
+        } catch (Exception exception) {
+
+            return null;
+        }
+    }
+
+    return null;
+}
+
+private boolean isActionableParent(
+        WebElement element) {
+
+    if (element == null) {
+        return false;
+    }
+
+    try {
+
+        String tag =
+                element.getTagName();
+
+        if ("button".equalsIgnoreCase(tag)) {
+            return element.isDisplayed()
+                    && element.isEnabled();
         }
 
-        return null;
+        if ("a".equalsIgnoreCase(tag)) {
+
+            String href =
+                    element.getAttribute("href");
+
+            String role =
+                    element.getAttribute("role");
+
+            return element.isDisplayed()
+                    && (
+                        isUsable(href)
+                        || "button".equalsIgnoreCase(role)
+                    );
+        }
+
+    } catch (Exception ignored) {
     }
+
+    return false;
+}
 
     private By uniqueAttribute(
             WebDriver driver,

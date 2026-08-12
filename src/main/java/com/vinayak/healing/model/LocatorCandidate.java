@@ -1,4 +1,5 @@
 package com.vinayak.healing.model;
+import com.vinayak.healing.dynamic.DynamicPatternType;
 import com.vinayak.healing.intent.ElementIntent;
 public class LocatorCandidate {
 
@@ -16,6 +17,11 @@ private String ariaLabel = "";
     private String generationStrategy = "";
     private double generationConfidence = 0.0;
     private ElementIntent intent;
+    private boolean dynamicAttribute;
+private DynamicPatternType dynamicPatternType =
+        DynamicPatternType.NONE;
+private String normalizedLocatorValue;
+private double stabilityScore = 100.0;
 private String parentTag;
 private String parentClass;
 private String parentId;
@@ -90,6 +96,40 @@ public void setGenerationStrategy(String generationStrategy) {
     this.generationStrategy = generationStrategy;
 }
 
+public boolean isDynamicAttribute() {
+    return dynamicAttribute;
+}
+
+public void setDynamicAttribute(boolean dynamicAttribute) {
+    this.dynamicAttribute = dynamicAttribute;
+}
+
+public DynamicPatternType getDynamicPatternType() {
+    return dynamicPatternType;
+}
+
+public void setDynamicPatternType(
+        DynamicPatternType dynamicPatternType) {
+    this.dynamicPatternType = dynamicPatternType;
+}
+
+public String getNormalizedLocatorValue() {
+    return normalizedLocatorValue;
+}
+
+public void setNormalizedLocatorValue(
+        String normalizedLocatorValue) {
+    this.normalizedLocatorValue = normalizedLocatorValue;
+}
+
+public double getStabilityScore() {
+    return stabilityScore;
+}
+
+public void setStabilityScore(double stabilityScore) {
+    this.stabilityScore = stabilityScore;
+}
+
 public double getGenerationConfidence() {
     return generationConfidence;
 }
@@ -161,6 +201,25 @@ public void setPlaceholder(String placeholder) {
 public String getId() {
     return id;
 }
+public void setTagName(String tagName) {
+    this.tagName = tagName;
+}
+
+public void setIntent(ElementIntent intent) {
+    this.intent = intent;
+}
+
+public void setLocatorType(String locatorType) {
+    this.locatorType = locatorType;
+}
+
+public void setLocatorValue(String locatorValue) {
+    this.locatorValue = locatorValue;
+}
+
+public void setScore(double score) {
+    this.score = score;
+}
 
 public void setId(String id) {
     this.id = id == null ? "" : id;
@@ -226,6 +285,10 @@ public void setAriaLabel(String ariaLabel) {
                 ", score=" + score +
                 ", finalScore=" + finalScore +
                 ", generatedLocator=" + generatedLocator +
+                ", dynamicAttribute=" + dynamicAttribute +
+", dynamicPatternType=" + dynamicPatternType +
+", normalizedLocatorValue='" + normalizedLocatorValue + '\'' +
+", stabilityScore=" + stabilityScore +
 ", generationStrategy='" + generationStrategy + '\'' +
 ", generationConfidence=" + generationConfidence +
                 ", occurrenceCount=" + occurrenceCount +

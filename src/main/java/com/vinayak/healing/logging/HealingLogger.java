@@ -25,8 +25,8 @@ public final class HealingLogger {
      * INFO keeps important healing information visible
      * without printing internal debugging details.
      */
-    private static volatile Level currentLevel =
-            Level.INFO;
+private static volatile Level currentLevel =
+        Level.DEBUG;
 
     private HealingLogger() {
         // Utility class

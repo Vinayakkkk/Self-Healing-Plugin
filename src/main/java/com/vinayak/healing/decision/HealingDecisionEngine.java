@@ -8,6 +8,10 @@ import java.util.List;
 
 public class HealingDecisionEngine {
 
+        private final SemanticEvidenceEvaluator
+        semanticEvidenceEvaluator =
+                new SemanticEvidenceEvaluator();
+
     public HealingDecision decide(
             LocatorCandidate validatedCandidate,
             List<LocatorCandidate> candidates,
@@ -36,10 +40,19 @@ public class HealingDecisionEngine {
                         ? Double.POSITIVE_INFINITY
                         : selectedScore - secondBestScore;
 
-        int semanticSignals =
-                countSemanticSignals(
-                        validatedCandidate,
-                        context);
+        SemanticEvidence semanticEvidence =
+        semanticEvidenceEvaluator.evaluate(
+                validatedCandidate,
+                context);
+
+int semanticSignals =
+        semanticEvidence.getSignalCount();
+
+        System.out.println();
+System.out.println("===== SEMANTIC EVIDENCE =====");
+System.out.println(semanticEvidence);
+System.out.println("=============================");
+System.out.println();
 
                         int occurrenceCount =
         validatedCandidate.getOccurrenceCount();

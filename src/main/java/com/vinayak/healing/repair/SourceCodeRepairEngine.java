@@ -88,17 +88,39 @@ System.out.println("=================================");
             boolean updated = locatorUpdater.updateLocator(
         javaFile,
         context.getVariableName(),
-        suggestion
-);
+        context.getLocatorDeclaration(),
+        suggestion);
 
             report.setRepairSuccessful(updated);
 
-            if (updated) {
-                report.setMessage("Locator repaired successfully.");
-            } else {
-                report.setMessage(
-        "Unable to locate variable in Page Object.");
-            }
+if (updated) {
+
+    report.setMessage(
+            "Locator repaired successfully.");
+
+} else {
+
+    /*
+     * A parameterized dynamic locator method is
+     * intentionally not modified because replacing
+     * it with a single healed locator could break
+     * other data-driven executions.
+     */
+    if (isParameterizedDynamicLocator(
+            javaFile,
+            context.getVariableName())) {
+
+        report.setMessage(
+                "Source repair skipped: "
+                + "parameterized dynamic locator method. "
+                + "Runtime healing and cache remain active.");
+
+    } else {
+
+        report.setMessage(
+                "Unable to locate variable in Page Object.");
+    }
+}
 
         } catch (IOException e) {
 
@@ -161,4 +183,51 @@ System.out.println("=================================");
                 return "By." + type + "(\"" + value + "\")";
         }
     }
+
+    private boolean isParameterizedDynamicLocator(
+        Path javaFile,
+        String variableName)
+        throws IOException {
+
+    String source =
+            java.nio.file.Files.readString(
+                    javaFile,
+                    java.nio.charset.StandardCharsets.UTF_8);
+
+    int variableIndex =
+            source.indexOf(variableName);
+
+    if (variableIndex == -1) {
+        return false;
+    }
+
+    int openingParenthesis =
+            source.indexOf(
+                    '(',
+                    variableIndex);
+
+    if (openingParenthesis == -1) {
+        return false;
+    }
+
+    int closingParenthesis =
+            source.indexOf(
+                    ')',
+                    openingParenthesis);
+
+    if (closingParenthesis == -1) {
+        return false;
+    }
+
+    String parameters =
+            source.substring(
+                    openingParenthesis + 1,
+                    closingParenthesis)
+            .trim();
+
+    /*
+     * Parameterized method.
+     */
+    return !parameters.isBlank();
+}
 }

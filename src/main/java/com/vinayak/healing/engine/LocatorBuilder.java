@@ -10,7 +10,7 @@ public class LocatorBuilder {
     /**
      * Builds a Selenium By from an AI LocatorSuggestion.
      */
-    public static By build(LocatorSuggestion suggestion) {
+   public static By build(LocatorSuggestion suggestion) {
 
         if (suggestion == null) {
             return null;
@@ -24,7 +24,7 @@ public class LocatorBuilder {
     /**
      * Builds a Selenium By from a deterministic LocatorCandidate.
      */
-    public static By build(LocatorCandidate candidate) {
+   public static By build(LocatorCandidate candidate) {
 
         if (candidate == null) {
             return null;
@@ -38,7 +38,7 @@ public class LocatorBuilder {
     /**
      * Common locator builder used by both AI and deterministic flows.
      */
-    private static By build(
+    public static By build(
             String locatorType,
             String locatorValue) {
 

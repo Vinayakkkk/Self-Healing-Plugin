@@ -67,6 +67,8 @@ public final class SimilarityUtil {
 
         Set<String> candidateTokens =
                 tokenize(candidate);
+                failedTokens.removeAll(GENERIC_VALUES);
+candidateTokens.removeAll(GENERIC_VALUES);
 
         if (failedTokens.isEmpty()
                 || candidateTokens.isEmpty()) {
@@ -85,17 +87,19 @@ public final class SimilarityUtil {
 
                     exactMatches++;
 
-                } else if (c.startsWith(f)
-                        || f.startsWith(c)) {
+                } else if (c.contains(f)
+        || f.contains(c)) {
 
-                    prefixMatches++;
-                }
+    prefixMatches++;
+}
             }
         }
 
         double identity =
-                (double) exactMatches
-                        / failedTokens.size();
+        (double) exactMatches
+        / Math.max(
+                failedTokens.size(),
+                candidateTokens.size());
 
         double score = 0;
 
@@ -109,7 +113,7 @@ public final class SimilarityUtil {
         // Prefix Score
         // ---------------------------------------
 
-        score += prefixMatches * 20;
+        score += prefixMatches * 35;
 
         // ---------------------------------------
         // Levenshtein (only if meaningful)
@@ -170,7 +174,7 @@ public final class SimilarityUtil {
 
         for (String part : parts) {
 
-            if (part.length() < 3) {
+            if (part.length() < 2) {
                 continue;
             }
 

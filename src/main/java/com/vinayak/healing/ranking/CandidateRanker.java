@@ -2,7 +2,7 @@ package com.vinayak.healing.ranking;
 
 import java.util.Comparator;
 import java.util.List;
-
+import com.vinayak.healing.similarity.SimilarityUtil;
 import com.vinayak.healing.analysis.DynamicPatternAnalyzer;
 import com.vinayak.healing.analysis.LocatorQualityAnalyzer;
 import com.vinayak.healing.intent.ElementIntent;
@@ -10,6 +10,9 @@ import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
 
 public class CandidateRanker {
+
+    private final ParentScorer parentScorer =
+        new ParentScorer();
 
     private final DynamicPatternAnalyzer dynamicAnalyzer =
             new DynamicPatternAnalyzer();
@@ -28,12 +31,79 @@ public class CandidateRanker {
             return candidates;
         }
 
-        String failedLocator =
-                context.getFailedLocator();
+   
 
         for (LocatorCandidate candidate : candidates) {
 
-           double score = candidate.getFinalScore();
+             System.out.println("\n===== CANDIDATE CONTEXT =====");
+
+    System.out.println(
+            "Locator      : "
+                    + candidate.getLocatorType()
+                    + "="
+                    + candidate.getLocatorValue());
+
+    System.out.println(
+            "ParentTag    : "
+                    + candidate.getParentTag());
+
+    System.out.println(
+            "ParentId     : "
+                    + candidate.getParentId());
+
+    System.out.println(
+            "ParentClass  : "
+                    + candidate.getParentClass());
+
+    System.out.println(
+            "NearestLabel : "
+                    + candidate.getNearestLabel());
+
+    System.out.println(
+            "ElementText  : "
+                    + candidate.getElementText());
+
+    System.out.println(
+            "ExpectedIntent : "
+                    + context.getExpectedIntent());
+
+    System.out.println(
+            "CandidateIntent : "
+                    + candidate.getIntent());
+
+    System.out.println(
+            "================================");
+
+    /*
+     * ==========================================
+     * SEMANTIC COMPATIBILITY GATE
+     * ==========================================
+     *
+     * Known intent mismatch means this candidate
+     * cannot be used for healing.
+     */
+    if (!isSemanticallyCompatible(
+            context,
+            candidate)) {
+
+        System.out.println(
+                "REJECTED - Semantic incompatibility");
+
+        System.out.println(
+                "Expected Intent : "
+                        + context.getExpectedIntent());
+
+        System.out.println(
+                "Candidate Intent : "
+                        + candidate.getIntent());
+
+        candidate.setFinalScore(
+                Double.NEGATIVE_INFINITY);
+
+        continue;
+    }
+
+           double score = candidate.getScore();
 
             score += calculateTagScore(
                     context,
@@ -47,17 +117,39 @@ public class CandidateRanker {
                     context,
                     candidate);
 
+                    score += calculateFailedLocatorSimilarityScore(
+        context,
+        candidate);
+
             score += calculateLocatorTypeScore(context, candidate);
 
-            score += calculateParentScore(
-                    candidate);
+            score += parentScorer.score(
+        context,
+        candidate);
+
+                 score += calculateDomContextScore(
+        context,
+        candidate);
+
+        double businessScore =
+        calculateBusinessContextScore(
+                context,
+                candidate);
+
+score += businessScore;
+
+score += calculateExactElementTextScore(
+        context,
+        candidate);
+
+
 
             score += calculateUniquenessScore(
                     candidate);
 
             score += calculateSemanticSimilarityScore(
-                    failedLocator,
-                    candidate);
+        context,
+        candidate);
 
             score += calculateDynamicScore(
         context,
@@ -66,22 +158,45 @@ public class CandidateRanker {
             score += calculateQualityScore(
                     candidate);
                     score += calculateGenerationScore(candidate);
+                    score += calculateStabilityScore(candidate);
 
             System.out.println("\n===== SCORE BREAKDOWN =====");
 System.out.println(candidate.getLocatorType() + "=" + candidate.getLocatorValue());
 
-System.out.println("Base Score      : " + candidate.getFinalScore());
+System.out.println(
+        "Base Score      : "
+                + candidate.getScore());
 System.out.println("Tag            : " + calculateTagScore(context, candidate));
 System.out.println("Intent         : " + calculateIntentScore(context, candidate));
 System.out.println("Identity       : " + calculateIdentityScore(context, candidate));
 System.out.println("Locator Type   : " + calculateLocatorTypeScore(context, candidate));
-System.out.println("Parent         : " + calculateParentScore(candidate));
+System.out.println(
+        "Parent         : "
+        + parentScorer.score(
+                context,
+                candidate));
+System.out.println("DOM Context    : "
+        + calculateDomContextScore(
+                context,
+                candidate));
+                System.out.println("Business       : "
+        + businessScore);
+
+        System.out.println(
+        "Exact Text     : "
+                + calculateExactElementTextScore(
+                        context,
+                        candidate));
 System.out.println("Unique         : " + calculateUniquenessScore(candidate));
-System.out.println("Semantic       : " + calculateSemanticSimilarityScore(failedLocator, candidate));
+System.out.println("Semantic       : " + calculateSemanticSimilarityScore(context, candidate));
 System.out.println("Dynamic        : " + calculateDynamicScore(context, candidate));
 System.out.println("Quality        : " + calculateQualityScore(candidate));
 System.out.println("Generation     : " + calculateGenerationScore(candidate));
+System.out.println(
+        "Stability     : "
+        + calculateStabilityScore(candidate));
 
+candidate.setScore(score);
 candidate.setFinalScore(score);
         }
 
@@ -94,7 +209,7 @@ candidate.setFinalScore(score);
 
         return candidates;
     }
-    private double calculateTagScore(
+private double calculateTagScore(
         FailureContext context,
         LocatorCandidate candidate) {
 
@@ -104,10 +219,19 @@ candidate.setFinalScore(score);
         return 0;
     }
 
+    /*
+     * Matching tag is positive evidence.
+     *
+     * Mismatching tag is NOT a rejection.
+     *
+     * A validated element may legitimately heal
+     * through a clickable parent, wrapper, or
+     * semantically equivalent DOM element.
+     */
     return context.getExpectedTag()
             .equalsIgnoreCase(candidate.getTagName())
             ? 150
-            : -200;
+            : 0;
 }
 
 private double calculateIntentScore(
@@ -126,6 +250,51 @@ private double calculateIntentScore(
             == candidate.getIntent()
             ? 120
             : -250;
+}
+
+private boolean isSemanticallyCompatible(
+        FailureContext context,
+        LocatorCandidate candidate) {
+
+    if (context == null
+            || candidate == null) {
+
+        return true;
+    }
+
+    ElementIntent expected =
+            context.getExpectedIntent();
+
+    ElementIntent actual =
+            candidate.getIntent();
+
+    /*
+     * No reliable expected intent.
+     * Do not reject the candidate.
+     */
+    if (expected == null
+            || expected == ElementIntent.UNKNOWN) {
+
+        return true;
+    }
+
+    /*
+     * Candidate intent is unknown.
+     * Allow other scoring/validation logic
+     * to evaluate the candidate.
+     */
+    if (actual == null
+            || actual == ElementIntent.UNKNOWN) {
+
+        return true;
+    }
+
+    /*
+     * Both intents are known.
+     *
+     * A mismatch is not allowed.
+     */
+    return expected == actual;
 }
 
 private double calculateLocatorTypeScore(
@@ -205,113 +374,307 @@ if ((failedLocator.contains("by.name")
     }
 }
 
-private double calculateParentScore(
-        LocatorCandidate candidate) {
-
-    if (!hasText(candidate.getParentTag())) {
-        return 0;
-    }
-
-    switch (candidate.getParentTag().toLowerCase()) {
-
-        case "form":
-            return 20;
-
-        case "table":
-            return 15;
-
-        case "dialog":
-            return 15;
-
-        case "nav":
-            return 10;
-
-        default:
-            return 0;
-    }
-}
 private double calculateUniquenessScore(
         LocatorCandidate candidate) {
 
-    if (candidate.getOccurrenceCount() <= 0) {
+    if (candidate == null) {
         return 0;
     }
 
-    if (candidate.getOccurrenceCount() == 1) {
-        return 100;
+    int occurrence =
+            candidate.getOccurrenceCount();
+
+    if (occurrence <= 0) {
+        return -250;
     }
 
-    if (candidate.isUniqueLocator()) {
-        return 80;
-    }
-
-    return -100;
-}
-
-private double calculateSemanticSimilarityScore(
-        String failedLocator,
-        LocatorCandidate candidate) {
-
-    String failedSemantic =
-            extractSemanticValue(failedLocator);
-
-    String candidateSemantic =
-            extractSemanticValue(
-                    candidate.getLocatorValue());
-
-    if (!hasText(failedSemantic)
-            || !hasText(candidateSemantic)) {
-
-        return 0;
-    }
-
-    double similarity =
-            calculateSimilarity(
-                    normalize(failedSemantic),
-                    normalize(candidateSemantic));
-
-    if (similarity >= 0.90) {
-        return 350;
-    }
-
-    if (similarity >= 0.75) {
-        return 250;
-    }
-
-    if (similarity >= 0.60) {
+    if (occurrence == 1) {
         return 150;
     }
 
-    if (similarity >= 0.40) {
+    if (occurrence == 2) {
+        return -100;
+    }
+
+    if (occurrence <= 4) {
+        return -200;
+    }
+
+    return -300;
+}
+
+private double calculateSemanticSimilarityScore(
+        FailureContext context,
+        LocatorCandidate candidate) {
+
+    if (context == null
+            || candidate == null) {
+
+        return 0;
+    }
+
+    /*
+     * --------------------------------------------------
+     * Build all available semantic sources.
+     *
+     * We do NOT depend only on variableName.
+     * Failed locator is an important semantic signal.
+     * --------------------------------------------------
+     */
+
+    String variable =
+            normalize(context.getVariableName());
+
+    String failedLocatorValue =
+            normalize(
+                    extractSemanticValue(
+                            context.getFailedLocator()));
+
+    String locatorHint =
+            normalize(
+                    context.getLocatorTextHint());
+
+    String expectedText =
+            normalize(
+                    context.getExpectedText());
+
+    /*
+     * --------------------------------------------------
+     * Candidate semantic values
+     * --------------------------------------------------
+     */
+
+    String locatorValue =
+            normalize(
+                    extractSemanticValue(
+                            candidate.getLocatorValue()));
+
+    String id =
+            normalize(
+                    candidate.getId());
+
+    String name =
+            normalize(
+                    candidate.getName());
+
+    String label =
+            normalize(
+                    candidate.getNearestLabel());
+
+    String elementText =
+            normalize(
+                    candidate.getElementText());
+
+    /*
+     * --------------------------------------------------
+     * Calculate semantic evidence from all available
+     * context sources.
+     * --------------------------------------------------
+     */
+
+    double best = 0;
+
+    /*
+     * Variable name
+     */
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    variable,
+                    locatorValue));
+
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    variable,
+                    id));
+
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    variable,
+                    name));
+
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    variable,
+                    label));
+
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    variable,
+                    elementText));
+
+    /*
+     * Failed locator semantic value
+     *
+     * Example:
+     *
+     * By.className: shopping
+     *
+     * becomes:
+     *
+     * shopping
+     */
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    failedLocatorValue,
+                    locatorValue));
+
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    failedLocatorValue,
+                    id));
+
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    failedLocatorValue,
+                    name));
+
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    failedLocatorValue,
+                    label));
+
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    failedLocatorValue,
+                    elementText));
+
+    /*
+     * Locator text hint
+     */
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    locatorHint,
+                    locatorValue));
+
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    locatorHint,
+                    id));
+
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    locatorHint,
+                    name));
+
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    locatorHint,
+                    label));
+
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    locatorHint,
+                    elementText));
+
+    /*
+     * Expected visible text
+     */
+    best = Math.max(
+            best,
+            SimilarityUtil.calculateOverallSimilarity(
+                    expectedText,
+                    elementText));
+
+    /*
+     * --------------------------------------------------
+     * Convert similarity into score.
+     * --------------------------------------------------
+     */
+
+    if (best >= 0.90) {
+        return 500;
+    }
+
+    if (best >= 0.75) {
+        return 350;
+    }
+
+    if (best >= 0.60) {
+        return 250;
+    }
+
+    if (best >= 0.45) {
+        return 150;
+    }
+
+    if (best >= 0.30) {
         return 75;
     }
 
     return 0;
 }
-
 private double calculateIdentityScore(
         FailureContext context,
         LocatorCandidate candidate) {
 
     if (context == null
             || candidate == null) {
+
         return 0;
     }
 
+    /*
+     * --------------------------------------------------
+     * 1. Variable semantic identity
+     * --------------------------------------------------
+     */
 
-String variable =
-        normalize(context.getVariableName());
+    String variable =
+            normalize(
+                    context.getVariableName());
 
-if (!hasText(variable)
-        || "direct locator".equals(variable)
-        || "direct_locator".equals(variable)
-        || "directlocator".equals(variable)) {
+    /*
+     * Generic / missing variable name.
+     * Fall back to failed locator semantic value.
+     */
+    if (!hasText(variable)
+            || "direct locator".equals(variable)
+            || "direct_locator".equals(variable)
+            || "directlocator".equals(variable)) {
 
-    variable =
+        variable =
+                normalize(
+                        extractSemanticValue(
+                                context.getFailedLocator()));
+    }
+
+    /*
+     * --------------------------------------------------
+     * 2. Failed locator semantic value
+     *
+     * Example:
+     *
+     * By.className: shopping
+     *
+     * -> shopping
+     * --------------------------------------------------
+     */
+
+    String failedLocatorValue =
             normalize(
                     extractSemanticValue(
                             context.getFailedLocator()));
-}
+
+    /*
+     * --------------------------------------------------
+     * 3. Candidate values
+     * --------------------------------------------------
+     */
 
     String locatorValue =
             normalize(
@@ -322,23 +685,157 @@ if (!hasText(variable)
             normalize(
                     candidate.getNearestLabel());
 
-    double locatorCoverage =
+    String id =
+            normalize(
+                    candidate.getId());
+
+    String name =
+            normalize(
+                    candidate.getName());
+
+    String elementText =
+            normalize(
+                    candidate.getElementText());
+
+    /*
+     * --------------------------------------------------
+     * 4. Variable coverage
+     * --------------------------------------------------
+     */
+
+    double variableLocatorCoverage =
             tokenCoverage(
                     variable,
                     locatorValue);
 
-    double labelCoverage =
+    double variableLabelCoverage =
             tokenCoverage(
                     variable,
                     label);
-                    if (labelCoverage >= 1.0)
-    return 600;
 
-if (labelCoverage >= 0.75)
-    return 450;
+    double variableIdCoverage =
+            tokenCoverage(
+                    variable,
+                    id);
 
-if (labelCoverage >= 0.50)
-    return 250;
+    double variableNameCoverage =
+            tokenCoverage(
+                    variable,
+                    name);
+
+    /*
+     * --------------------------------------------------
+     * 5. Failed locator coverage
+     *
+     * This is the important fix.
+     *
+     * Example:
+     *
+     * failed = shopping
+     *
+     * candidate =
+     * shopping_cart_badge
+     *
+     * coverage = 1.0
+     * --------------------------------------------------
+     */
+
+    double failedLocatorCoverage =
+            tokenCoverage(
+                    failedLocatorValue,
+                    locatorValue);
+
+    double failedIdCoverage =
+            tokenCoverage(
+                    failedLocatorValue,
+                    id);
+
+    double failedNameCoverage =
+            tokenCoverage(
+                    failedLocatorValue,
+                    name);
+
+    double failedLabelCoverage =
+            tokenCoverage(
+                    failedLocatorValue,
+                    label);
+
+    /*
+     * --------------------------------------------------
+     * 6. Visible text coverage
+     * --------------------------------------------------
+     */
+
+    double textCoverage =
+            tokenCoverage(
+                    context.getExpectedText(),
+                    elementText);
+
+    /*
+     * --------------------------------------------------
+     * 7. Failed locator is strong semantic evidence.
+     *
+     * We deliberately give it priority over generic
+     * structural information.
+     * --------------------------------------------------
+     */
+
+    double failedCoverage =
+            Math.max(
+                    Math.max(
+                            failedLocatorCoverage,
+                            failedIdCoverage),
+                    Math.max(
+                            failedNameCoverage,
+                            failedLabelCoverage));
+
+    if (failedCoverage >= 1.0) {
+
+        System.out.println(
+                "IDENTITY MATCH | Failed locator semantic match = 100%");
+
+        return 700;
+    }
+
+    if (failedCoverage >= 0.75) {
+
+        System.out.println(
+                "IDENTITY MATCH | Failed locator semantic match >= 75%");
+
+        return 500;
+    }
+
+    if (failedCoverage >= 0.50) {
+
+        System.out.println(
+                "IDENTITY MATCH | Failed locator semantic match >= 50%");
+
+        return 300;
+    }
+
+    /*
+     * --------------------------------------------------
+     * 8. Exact business label
+     * --------------------------------------------------
+     */
+
+    if (variableLabelCoverage >= 1.0) {
+        return 600;
+    }
+
+    if (variableLabelCoverage >= 0.75) {
+        return 450;
+    }
+
+    if (variableLabelCoverage >= 0.50) {
+        return 250;
+    }
+
+    /*
+     * --------------------------------------------------
+     * 9. Strong locator identity
+     * --------------------------------------------------
+     */
 
     String locatorType =
             candidate.getLocatorType() == null
@@ -348,48 +845,86 @@ if (labelCoverage >= 0.50)
 
     if (isStrongIdentityLocator(locatorType)) {
 
-        if (locatorCoverage >= 1.0)
+        if (variableLocatorCoverage >= 1.0
+                || variableIdCoverage >= 1.0
+                || variableNameCoverage >= 1.0) {
+
             return 500;
+        }
 
-        if (locatorCoverage >= 0.75)
+        if (variableLocatorCoverage >= 0.75
+                || variableIdCoverage >= 0.75
+                || variableNameCoverage >= 0.75) {
+
             return 350;
+        }
 
-        if (locatorCoverage >= 0.50)
+        if (variableLocatorCoverage >= 0.50
+                || variableIdCoverage >= 0.50
+                || variableNameCoverage >= 0.50) {
+
             return 200;
+        }
     }
+
+    /*
+     * --------------------------------------------------
+     * 10. Text / XPath identity
+     * --------------------------------------------------
+     */
 
     if ("text".equals(locatorType)
             || "xpath".equals(locatorType)) {
 
-        if (locatorCoverage >= 1.0)
+        if (variableLocatorCoverage >= 1.0) {
             return 400;
+        }
 
-        if (locatorCoverage >= 0.75)
+        if (variableLocatorCoverage >= 0.75) {
             return 300;
+        }
 
-        if (locatorCoverage >= 0.50)
+        if (variableLocatorCoverage >= 0.50) {
             return 150;
+        }
     }
 
-if ("class".equals(locatorType)
-        || "css".equals(locatorType)
-        || "cssselector".equals(locatorType)) {
+    /*
+     * --------------------------------------------------
+     * 11. CSS / class identity
+     * --------------------------------------------------
+     */
 
-    if (locatorCoverage >= 1.0)
-        return 450;
+    if ("class".equals(locatorType)
+            || "css".equals(locatorType)
+            || "cssselector".equals(locatorType)) {
 
-    if (locatorCoverage >= 0.75)
-        return 325;
+        if (variableLocatorCoverage >= 1.0) {
+            return 450;
+        }
 
-    if (locatorCoverage >= 0.50)
-        return 200;
-}
+        if (variableLocatorCoverage >= 0.75) {
+            return 325;
+        }
 
-    if (labelCoverage >= 1.0)
+        if (variableLocatorCoverage >= 0.50) {
+            return 200;
+        }
+    }
+
+    /*
+     * --------------------------------------------------
+     * 12. Expected visible text
+     * --------------------------------------------------
+     */
+
+    if (textCoverage >= 1.0) {
         return 300;
+    }
 
-    if (labelCoverage >= 0.50)
+    if (textCoverage >= 0.50) {
         return 150;
+    }
 
     return 0;
 }
@@ -470,11 +1005,10 @@ private String normalize(
     }
 
     return value
-            .replaceAll("([a-z])([A-Z])", "$1 $2")
-            .replaceAll("[^a-zA-Z0-9]+", " ")
+            .toLowerCase()
+            .replaceAll("[^a-z0-9 ]", " ")
             .replaceAll("\\s+", " ")
-            .trim()
-            .toLowerCase();
+            .trim();
 }
 
 private boolean isGenericToken(
@@ -502,13 +1036,20 @@ private boolean isGenericToken(
         case "locator":
         case "page":
         case "menu":
+        case "container":
+        case "wrapper":
+        case "content":
+        case "header":
+        case "footer":
+        case "section":
+        case "div":
+        case "span":
             return true;
 
         default:
             return false;
     }
 }
-
 private double tokenCoverage(
         String source,
         String target) {
@@ -519,26 +1060,50 @@ private double tokenCoverage(
         return 0;
     }
 
-    String[] tokens =
-            source.split("\\s+");
+    String normalizedSource =
+            normalize(source);
+
+    String normalizedTarget =
+            normalize(target);
+
+    if (!hasText(normalizedSource)
+            || !hasText(normalizedTarget)) {
+
+        return 0;
+    }
+
+    String[] sourceTokens =
+            normalizedSource.split("\\s+");
+
+    String[] targetTokens =
+            normalizedTarget.split("\\s+");
 
     int meaningful = 0;
     int matched = 0;
 
-    for (String token : tokens) {
+    for (String sourceToken :
+            sourceTokens) {
 
-        if (isGenericToken(token)) {
+        if (!hasText(sourceToken)
+                || sourceToken.length() < 2) {
+
             continue;
         }
 
-        if (token.length() < 2) {
+        if (isGenericToken(sourceToken)) {
             continue;
         }
 
         meaningful++;
 
-        if (target.contains(token)) {
-            matched++;
+        for (String targetToken :
+                targetTokens) {
+
+            if (sourceToken.equals(targetToken)) {
+
+                matched++;
+                break;
+            }
         }
     }
 
@@ -645,13 +1210,11 @@ if (first.equals(second)) {
 }
 
 
-if (first.startsWith(second)
-        || second.startsWith(first)) {
+if (first.contains(second)
+        || second.contains(first)) {
 
     return 0.90;
 }
-
-
 
     int distance =
             levenshteinDistance(
@@ -710,53 +1273,387 @@ private int levenshteinDistance(
 private double calculateGenerationScore(
         LocatorCandidate candidate) {
 
+    if (candidate == null) {
+        return 0;
+    }
+
     if (!candidate.isGeneratedLocator()) {
         return 0;
     }
 
-    double score = candidate.getGenerationConfidence();
+    return candidate.getGenerationConfidence();
+}
+private double calculateDomContextScore(
+        FailureContext context,
+        LocatorCandidate candidate) {
 
-    String strategy = candidate.getGenerationStrategy();
+    if (context == null
+            || candidate == null) {
 
-    if (strategy == null) {
-        return score;
+        return 0;
     }
 
-    switch (strategy.toUpperCase()) {
+    double score = 0;
 
-        case "ID":
-            return score + 100;
+    /*
+     * Parent Tag
+     */
+if (hasText(context.getParentTag())
+        && hasText(candidate.getParentTag())) {
 
-        case "DATA_TESTID":
-        case "DATA_TEST":
-            return score + 90;
+    double coverage =
+            tokenCoverage(
+                    normalize(context.getParentTag()),
+                    normalize(candidate.getParentTag()));
 
-        case "PARENT_ID":
-            return score + 80;
+    if (coverage >= 1.0) {
 
-        case "PARENT_DATA":
-            return score + 75;
+        score += 20;
 
-        case "SEMANTIC_CONTAINER":
-            return score + 65;
+    } else if (coverage >= 0.75) {
 
-        case "SCOPED_CSS":
-            return score + 60;
+        score += 15;
 
-        case "SCOPED_XPATH":
-            return score + 55;
+    } else if (coverage >= 0.50) {
 
-        case "LABEL_XPATH":
-            return score + 45;
-
-        case "POSITION_XPATH":
-            return score + 10;
-
-        case "AI":
-            return score + 70;
-
-        default:
-            return score;
+        score += 10;
     }
+}
+
+    /*
+     * Parent Id
+     */
+if (hasText(context.getParentId())
+        && hasText(candidate.getParentId())) {
+
+    double coverage =
+            tokenCoverage(
+                    normalize(context.getParentId()),
+                    normalize(candidate.getParentId()));
+
+    if (coverage >= 1.0) {
+
+        score += 40;
+
+    } else if (coverage >= 0.75) {
+
+        score += 30;
+
+    } else if (coverage >= 0.50) {
+
+        score += 20;
+    }
+}
+
+    /*
+     * Parent Class
+     */
+if (hasText(context.getParentClass())
+        && hasText(candidate.getParentClass())) {
+
+    double coverage =
+            tokenCoverage(
+                    normalize(context.getParentClass()),
+                    normalize(candidate.getParentClass()));
+
+    if (coverage >= 1.0) {
+
+        score += 30;
+
+    } else if (coverage >= 0.75) {
+
+        score += 20;
+
+    } else if (coverage >= 0.50) {
+
+        score += 10;
+    }
+}
+
+    /*
+     * Nearest Label
+     */
+    if (hasText(context.getNearestLabel())
+            && hasText(candidate.getNearestLabel())) {
+
+        double coverage =
+                tokenCoverage(
+                        normalize(context.getNearestLabel()),
+                        normalize(candidate.getNearestLabel()));
+
+        if (coverage >= 1.0) {
+
+            score += 60;
+
+        } else if (coverage >= 0.75) {
+
+            score += 45;
+
+        } else if (coverage >= 0.50) {
+
+            score += 30;
+        }
+    }
+
+    /*
+     * Visible Element Text
+     */
+    if (hasText(context.getExpectedText())
+            && hasText(candidate.getElementText())) {
+
+        double coverage =
+                tokenCoverage(
+                        normalize(context.getExpectedText()),
+                        normalize(candidate.getElementText()));
+
+        if (coverage >= 1.0) {
+
+            score += 50;
+
+        } else if (coverage >= 0.75) {
+
+            score += 35;
+
+        } else if (coverage >= 0.50) {
+
+            score += 20;
+        }
+    }
+
+    return score;
+}
+
+private double calculateExactElementTextScore(
+        FailureContext context,
+        LocatorCandidate candidate) {
+
+    if (context == null
+            || candidate == null
+            || !hasText(context.getExpectedText())
+            || !hasText(candidate.getElementText())) {
+
+        return 0;
+    }
+
+    String expected =
+            normalize(context.getExpectedText());
+
+    String actual =
+            normalize(candidate.getElementText());
+
+    if (expected.isBlank()
+            || actual.isBlank()) {
+
+        return 0;
+    }
+
+    /*
+     * Exact visible text is extremely strong identity
+     * evidence for a TEXT element.
+     */
+    if (expected.equals(actual)) {
+        return 700;
+    }
+
+    /*
+     * Partial business-text match.
+     */
+    if (actual.contains(expected)
+            || expected.contains(actual)) {
+
+        return 250;
+    }
+
+    return 0;
+}
+private double calculateBusinessContextScore(
+        FailureContext context,
+        LocatorCandidate candidate) {
+
+    if (context == null || candidate == null) {
+        return 0;
+    }
+
+    double score = 0;
+
+    score += compare(
+            context.getNearestLabel(),
+            candidate.getNearestLabel(),
+            500);
+
+    score += compare(
+            context.getExpectedText(),
+            candidate.getElementText(),
+            300);
+
+    score += compare(
+            context.getParentId(),
+            candidate.getParentId(),
+            250);
+
+    score += compare(
+            context.getParentClass(),
+            candidate.getParentClass(),
+            200);
+
+    /*
+     * Cross comparison
+     * Label often appears inside parent class/id.
+     */
+
+    score += compare(
+            context.getNearestLabel(),
+            candidate.getParentId(),
+            250);
+
+    score += compare(
+            context.getNearestLabel(),
+            candidate.getParentClass(),
+            200);
+
+    score += compare(
+            context.getNearestLabel(),
+            candidate.getId(),
+            200);
+
+    score += compare(
+            context.getNearestLabel(),
+            candidate.getName(),
+            150);
+
+    return score;
+}
+private double compare(
+        String expected,
+        String actual,
+        double weight) {
+
+    if (!hasText(expected)
+            || !hasText(actual)) {
+
+        return 0;
+    }
+
+    expected = normalize(expected);
+    actual = normalize(actual);
+
+    if (expected.equals(actual)) {
+        return weight;
+    }
+
+    if (actual.contains(expected)
+            || expected.contains(actual)) {
+
+        return weight * 0.75;
+    }
+
+    String[] expectedTokens =
+            expected.split("\\s+");
+
+    String[] actualTokens =
+            actual.split("\\s+");
+
+    int meaningfulTokens = 0;
+    int matchedTokens = 0;
+
+    for (String token : expectedTokens) {
+
+        if (isGenericToken(token)
+                || token.length() < 2) {
+            continue;
+        }
+
+        meaningfulTokens++;
+
+        for (String actualToken : actualTokens) {
+
+            if (actualToken.equals(token)) {
+                matchedTokens++;
+                break;
+            }
+        }
+    }
+
+    if (meaningfulTokens == 0
+            || matchedTokens == 0) {
+
+        return 0;
+    }
+
+    return weight
+            * matchedTokens
+            / meaningfulTokens;
+}
+
+private double calculateStabilityScore(
+        LocatorCandidate candidate) {
+
+    if (candidate == null) {
+        return 0;
+    }
+
+    return candidate.getStabilityScore();
+}
+private double calculateFailedLocatorSimilarityScore(
+        FailureContext context,
+        LocatorCandidate candidate) {
+
+    if (context == null
+            || candidate == null
+            || !hasText(context.getFailedLocator())
+            || !hasText(candidate.getLocatorValue())) {
+
+        return 0;
+    }
+
+    String failedValue =
+            normalize(
+                    extractSemanticValue(
+                            context.getFailedLocator()));
+
+    String candidateValue =
+            normalize(
+                    extractSemanticValue(
+                            candidate.getLocatorValue()));
+
+    if (!hasText(failedValue)
+            || !hasText(candidateValue)) {
+
+        return 0;
+    }
+
+    double similarity =
+            calculateSimilarity(
+                    failedValue,
+                    candidateValue);
+
+    System.out.println(
+            "Failed Locator Similarity : "
+                    + similarity);
+
+    /*
+     * This score is only a supporting signal.
+     *
+     * Actual semantic identity is handled by
+     * calculateIdentityScore().
+     */
+
+    if (similarity >= 0.95) {
+        return 150;
+    }
+
+    if (similarity >= 0.80) {
+        return 100;
+    }
+
+    if (similarity >= 0.65) {
+        return 75;
+    }
+
+    if (similarity >= 0.50) {
+        return 40;
+    }
+
+    return 0;
 }
 }
