@@ -4,38 +4,67 @@ import com.vinayak.healing.model.LocatorCandidate;
 
 public class LocatorQualityAnalyzer {
 
-    public double calculateScore(LocatorCandidate candidate) {
+    /*
+     * =========================================================
+     * PUBLIC API
+     * =========================================================
+     */
+
+    /**
+     * Returns the complete locator quality score.
+     *
+     * Kept for backward compatibility with existing framework
+     * code.
+     *
+     * Range:
+     * 0 - 390
+     */
+    public double calculateScore(
+            LocatorCandidate candidate) {
 
         if (candidate == null) {
             return 0;
         }
 
-        double score = 0;
-
-        score += getLocatorTypeWeight(candidate);
-        score += calculateStabilityScore(candidate);
-        score += calculateDescriptiveScore(candidate);
-        score += calculateUniquenessScore(candidate);
-        score += calculateLengthScore(candidate);
-        score += calculateGeneratedPatternPenalty(candidate);
-
-        return score;
+        return getLocatorTypeScore(candidate)
+                + getStabilityScore(candidate)
+                + getDescriptiveScore(candidate)
+                + getUniquenessScore(candidate)
+                + getLengthScore(candidate)
+                + getGeneratedPatternScore(candidate);
     }
 
-    /**
-     * Different locator types have different reliability.
-     * Keep the gap small so this doesn't dominate ranking.
+    /*
+     * =========================================================
+     * RANKING 2.0 COMPONENTS
+     * =========================================================
      */
-    private double getLocatorTypeWeight(
+
+    /**
+     * Locator type reliability.
+     *
+     * Range:
+     * 0 - 100
+     */
+    public double getLocatorTypeScore(
             LocatorCandidate candidate) {
 
-        String type = candidate.getLocatorType();
-
-        if (type == null) {
+        if (candidate == null) {
             return 0;
         }
 
-        switch (type.toLowerCase()) {
+        String type =
+                candidate.getLocatorType();
+
+        if (type == null
+                || type.isBlank()) {
+
+            return 50;
+        }
+
+        switch (type
+                .trim()
+                .toLowerCase()) {
 
             case "data-testid":
                 return 100;
@@ -67,70 +96,77 @@ public class LocatorQualityAnalyzer {
             case "xpath":
                 return 60;
 
+            case "css":
+            case "cssselector":
+                return 55;
+
+            case "tagname":
+                return 40;
+
+            case "linktext":
+                return 50;
+
+            case "partiallinktext":
+                return 40;
+
             default:
                 return 50;
         }
     }
 
     /**
-     * Penalize obviously unstable/generated values.
+     * Locator stability.
+     *
+     * Prefer the stability information already calculated
+     * by DynamicAttributeDetector / LocatorCandidate.
+     *
+     * Range:
+     * 0 - 100
      */
-    private double calculateStabilityScore(
+    public double getStabilityScore(
             LocatorCandidate candidate) {
 
-        String value = candidate.getLocatorValue();
-
-        if (value == null || value.isBlank()) {
+        if (candidate == null) {
             return 0;
         }
 
-        double score = 100;
+        double stability =
+                candidate.getStabilityScore();
 
-        // long numeric sequences
-        if (value.matches(".*\\d{5,}.*")) {
-            score -= 40;
-        }
-
-        // long hex/hash strings
-        if (value.matches(".*[a-fA-F0-9]{8,}.*")) {
-            score -= 40;
-        }
-
-        // Angular generated classes
-        if (value.matches(".*ng-tns.*")) {
-            score -= 30;
-        }
-
-        // CSS-in-JS generated classes
-        if (value.matches(".*css-[a-zA-Z0-9]+.*")) {
-            score -= 30;
-        }
-
-        // React/MUI style hashes
-        if (value.matches(".*__[A-Za-z0-9]+.*")) {
-            score -= 20;
-        }
-
-        return Math.max(score, 0);
+        return clamp(
+                stability,
+                0,
+                100);
     }
 
     /**
-     * Reward descriptive locator values.
+     * Descriptiveness of locator value.
+     *
+     * Range:
+     * 0 - 100
      */
-    private double calculateDescriptiveScore(
+    public double getDescriptiveScore(
             LocatorCandidate candidate) {
 
-        String value = candidate.getLocatorValue();
-
-        if (value == null || value.isBlank()) {
+        if (candidate == null) {
             return 0;
         }
 
-        String[] tokens = value
-                .replace('-', ' ')
-                .replace('_', ' ')
-                .trim()
-                .split("\\s+");
+        String value =
+                candidate.getLocatorValue();
+
+        if (value == null
+                || value.isBlank()) {
+
+            return 0;
+        }
+
+        String[] tokens =
+                value
+                        .replace('-', ' ')
+                        .replace('_', ' ')
+                        .trim()
+                        .split("\\s+");
 
         if (tokens.length >= 4) {
             return 100;
@@ -148,69 +184,217 @@ public class LocatorQualityAnalyzer {
     }
 
     /**
-     * Unique locators are more reliable.
+     * Locator uniqueness.
+     *
+     * Uses occurrence count when available.
+     *
+     * Range:
+     * 0 - 100
      */
-    private double calculateUniquenessScore(
+    public double getUniquenessScore(
             LocatorCandidate candidate) {
 
-        return candidate.isUniqueLocator()
-                ? 50
-                : 0;
-    }
-
-    /**
-     * Longer locator values are usually more descriptive.
-     */
-    private double calculateLengthScore(
-            LocatorCandidate candidate) {
-
-        String value = candidate.getLocatorValue();
-
-        if (value == null) {
+        if (candidate == null) {
             return 0;
         }
 
-        int length = value.length();
+        int occurrenceCount =
+                candidate.getOccurrenceCount();
 
-        if (length > 25) {
-            return 40;
+        if (occurrenceCount <= 1) {
+            return 100;
         }
 
-        if (length > 15) {
-            return 30;
+        if (occurrenceCount == 2) {
+            return 50;
         }
 
-        if (length > 8) {
-            return 20;
-        }
-
-        return 10;
-    }
-
-    /**
-     * Penalize generated patterns.
-     */
-    private double calculateGeneratedPatternPenalty(
-            LocatorCandidate candidate) {
-
-        String value = candidate.getLocatorValue();
-
-        if (value == null) {
-            return 0;
-        }
-
-        if (value.matches(".*_[0-9]{4,}.*")) {
-            return -40;
-        }
-
-        if (value.matches(".*-[0-9]{5,}.*")) {
-            return -40;
-        }
-
-        if (value.matches(".*\\$\\$.*")) {
-            return -30;
+        if (occurrenceCount <= 4) {
+            return 25;
         }
 
         return 0;
+    }
+
+    /**
+     * Locator value length.
+     *
+     * Range:
+     * 0 - 100
+     */
+    public double getLengthScore(
+            LocatorCandidate candidate) {
+
+        if (candidate == null) {
+            return 0;
+        }
+
+        String value =
+                candidate.getLocatorValue();
+
+        if (value == null
+                || value.isBlank()) {
+
+            return 0;
+        }
+
+        int length =
+                value.length();
+
+        if (length > 25) {
+            return 100;
+        }
+
+        if (length > 15) {
+            return 75;
+        }
+
+        if (length > 8) {
+            return 50;
+        }
+
+        return 25;
+    }
+
+    /**
+     * Generated-pattern reliability.
+     *
+     * This method converts the existing generated-pattern
+     * penalties into a normalized reliability signal.
+     *
+     * Range:
+     * 0 - 100
+     */
+    public double getGeneratedPatternScore(
+            LocatorCandidate candidate) {
+
+        if (candidate == null) {
+            return 0;
+        }
+
+        String value =
+                candidate.getLocatorValue();
+
+        if (value == null
+                || value.isBlank()) {
+
+            return 0;
+        }
+
+        double score = 100;
+
+        /*
+         * Numeric suffix.
+         */
+        if (value.matches(
+                ".*_[0-9]{4,}.*")) {
+
+            score -= 40;
+        }
+
+        /*
+         * Large numeric suffix.
+         */
+        if (value.matches(
+                ".*-[0-9]{5,}.*")) {
+
+            score -= 40;
+        }
+
+        /*
+         * Generated framework pattern.
+         */
+        if (value.matches(
+                ".*\\$\\$.*")) {
+
+            score -= 30;
+        }
+
+        return clamp(
+                score,
+                0,
+                100);
+    }
+
+    /*
+     * =========================================================
+     * RANKING 2.0 RELIABILITY SCORE
+     * =========================================================
+     */
+
+    /**
+     * Calculates the normalized reliability score used by
+     * CandidateRanker 2.0.
+     *
+     * Formula:
+     *
+     * Uniqueness          30%
+     * Stability            25%
+     * Descriptiveness      20%
+     * Generation           10%
+     * Locator Type          5%
+     * Length               10%
+     *
+     * Range:
+     * 0 - 100
+     */
+    public double calculateReliabilityScore(
+            LocatorCandidate candidate) {
+
+        if (candidate == null) {
+            return 0;
+        }
+
+        double uniqueness =
+                getUniquenessScore(candidate);
+
+        double stability =
+                getStabilityScore(candidate);
+
+        double descriptive =
+                getDescriptiveScore(candidate);
+
+        double generation =
+                clamp(
+                        candidate.getGenerationConfidence(),
+                        0,
+                        100);
+
+        double locatorType =
+                getLocatorTypeScore(candidate);
+
+        double length =
+                getLengthScore(candidate);
+
+        double score =
+                (uniqueness * 0.30)
+                + (stability * 0.25)
+                + (descriptive * 0.20)
+                + (generation * 0.10)
+                + (locatorType * 0.05)
+                + (length * 0.10);
+
+        return clamp(
+                score,
+                0,
+                100);
+    }
+
+    /*
+     * =========================================================
+     * UTILITY
+     * =========================================================
+     */
+
+    private double clamp(
+            double value,
+            double min,
+            double max) {
+
+        return Math.max(
+                min,
+                Math.min(
+                        max,
+                        value));
     }
 }

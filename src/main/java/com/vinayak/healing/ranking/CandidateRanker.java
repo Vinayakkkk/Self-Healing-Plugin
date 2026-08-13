@@ -11,6 +11,8 @@ import com.vinayak.healing.model.LocatorCandidate;
 
 public class CandidateRanker {
 
+        private static final double LOCATOR_QUALITY_WEIGHT = 1.5;
+
     private final ParentScorer parentScorer =
         new ParentScorer();
 
@@ -155,10 +157,7 @@ score += calculateExactElementTextScore(
         context,
         candidate);
 
-            score += calculateQualityScore(
-                    candidate);
-                    score += calculateGenerationScore(candidate);
-                    score += calculateStabilityScore(candidate);
+           score += calculateQualityScore(candidate);
 
             System.out.println("\n===== SCORE BREAKDOWN =====");
 System.out.println(candidate.getLocatorType() + "=" + candidate.getLocatorValue());
@@ -190,11 +189,9 @@ System.out.println("DOM Context    : "
 System.out.println("Unique         : " + calculateUniquenessScore(candidate));
 System.out.println("Semantic       : " + calculateSemanticSimilarityScore(context, candidate));
 System.out.println("Dynamic        : " + calculateDynamicScore(context, candidate));
-System.out.println("Quality        : " + calculateQualityScore(candidate));
-System.out.println("Generation     : " + calculateGenerationScore(candidate));
 System.out.println(
-        "Stability     : "
-        + calculateStabilityScore(candidate));
+        "Quality        : "
+        + calculateQualityScore(candidate));
 
 candidate.setScore(score);
 candidate.setFinalScore(score);
@@ -940,8 +937,13 @@ private double calculateDynamicScore(
 private double calculateQualityScore(
         LocatorCandidate candidate) {
 
-    return qualityAnalyzer.calculateScore(
-            candidate);
+    if (candidate == null) {
+        return 0;
+    }
+
+    return qualityAnalyzer
+            .calculateReliabilityScore(candidate)
+            * LOCATOR_QUALITY_WEIGHT;
 }
 
 private void printRanking(
@@ -1270,19 +1272,7 @@ private int levenshteinDistance(
 
     return dp[first.length()][second.length()];
 }
-private double calculateGenerationScore(
-        LocatorCandidate candidate) {
 
-    if (candidate == null) {
-        return 0;
-    }
-
-    if (!candidate.isGeneratedLocator()) {
-        return 0;
-    }
-
-    return candidate.getGenerationConfidence();
-}
 private double calculateDomContextScore(
         FailureContext context,
         LocatorCandidate candidate) {
@@ -1585,15 +1575,7 @@ private double compare(
             / meaningfulTokens;
 }
 
-private double calculateStabilityScore(
-        LocatorCandidate candidate) {
 
-    if (candidate == null) {
-        return 0;
-    }
-
-    return candidate.getStabilityScore();
-}
 private double calculateFailedLocatorSimilarityScore(
         FailureContext context,
         LocatorCandidate candidate) {
