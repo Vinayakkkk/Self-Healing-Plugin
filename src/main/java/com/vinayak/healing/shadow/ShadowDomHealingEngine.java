@@ -25,26 +25,51 @@ public final class ShadowDomHealingEngine {
                if (HealingLogger.isDebugEnabled()) {
     System.out.println("===== ENTERED SHADOW DOM HEALING =====");
 }
+List<LocatorCandidate> candidates =
+        new ArrayList<>();
 
-        if (!ShadowDomDetector.hasShadowDom(driver)) {
-            return Collections.emptyList();
-        }
+JavascriptExecutor js =
+        (JavascriptExecutor) driver;
 
-        List<LocatorCandidate> candidates =
-                new ArrayList<>();
+List<WebElement> hosts =
+        ShadowDomDetector.findShadowHosts(driver);
 
-        JavascriptExecutor js =
-                (JavascriptExecutor) driver;
+System.out.println(
+        "[SHADOW DEBUG] Hosts found = "
+        + hosts.size());
 
-        for (WebElement host :
-                ShadowDomDetector.findShadowHosts(driver)) {
+if (hosts.isEmpty()) {
+    return Collections.emptyList();
+}
 
-            SearchContext shadowRoot =
-                    ShadowDomExplorer.getShadowRoot(host);
+System.out.println(
+        "[SHADOW DEBUG] Hosts found = "
+        + hosts.size());
 
-            if (shadowRoot == null) {
-                continue;
-            }
+for (WebElement host : hosts) {
+
+    try {
+        System.out.println(
+                "[SHADOW DEBUG] Host = "
+                + host.getTagName());
+    } catch (Exception ignored) {
+        System.out.println(
+                "[SHADOW DEBUG] Host tag unavailable");
+    }
+
+    SearchContext shadowRoot =
+            ShadowDomExplorer.getShadowRoot(host);
+
+    if (shadowRoot == null) {
+
+        System.out.println(
+                "[SHADOW DEBUG] Shadow root = NULL");
+
+        continue;
+    }
+
+    System.out.println(
+            "[SHADOW DEBUG] Shadow root = FOUND");
 
             try {
 

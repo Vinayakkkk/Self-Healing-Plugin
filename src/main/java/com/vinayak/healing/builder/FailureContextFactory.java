@@ -2,6 +2,7 @@ package com.vinayak.healing.builder;
 
 import com.vinayak.healing.context.FallbackContextResolver;
 import com.vinayak.healing.model.FailureContext;
+import com.vinayak.healing.model.TargetCardinality;
 import com.vinayak.healing.source.PageObjectResolver;
 import com.vinayak.healing.source.SourceCodeAnalyzer;
 import org.openqa.selenium.By;
@@ -21,9 +22,10 @@ public class FailureContextFactory {
     private final FailureContextBuilder builder =
             new FailureContextBuilder();
 
-    public FailureContext build(
-            WebDriver driver,
-            By locator) {
+   public FailureContext build(
+        WebDriver driver,
+        By locator,
+        TargetCardinality targetCardinality) {
 
         String pageObjectPath =
                 pageObjectResolver.findPageObjectFromStackTrace();
@@ -53,6 +55,9 @@ public class FailureContextFactory {
                         declaration);
 
         context.setPageObjectPath(pageObjectPath);
+
+        context.setTargetCardinality(
+        targetCardinality);
 
         if (variableName == null
                 || variableName.isBlank()) {

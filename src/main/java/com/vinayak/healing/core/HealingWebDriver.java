@@ -1,15 +1,13 @@
 package com.vinayak.healing.core;
 
 import com.vinayak.healing.analytics.HealingAnalytics;
-import com.vinayak.healing.builder.FailureContextFactory;
 import com.vinayak.healing.cache.LocatorCache;
 import com.vinayak.healing.config.HealingConfig;
 import com.vinayak.healing.engine.SelfHealingEngine;
-import com.vinayak.healing.execution.ExecutionRecorder;
+import com.vinayak.healing.execution.ExecutionAction;
 import com.vinayak.healing.execution.ExecutionTracker;
 import com.vinayak.healing.logging.HealingLogger;
-import com.vinayak.healing.model.FailureContext;
-import com.vinayak.healing.validator.SuccessfulLocatorValidator;
+
 import java.util.List;
 import java.util.Set;
 import org.openqa.selenium.By;
@@ -18,6 +16,14 @@ import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import java.time.Duration;
+
+
+
+import org.openqa.selenium.TimeoutException;
+
 
 public class HealingWebDriver
         implements WebDriver,
@@ -28,15 +34,12 @@ private final WebDriver driver;
 
 private final HealingConfig config;
 
-private final FailureContextFactory failureContextFactory =
-        new FailureContextFactory();
+
 
 private final SelfHealingEngine healingEngine =
         new SelfHealingEngine();
 
-        private final SuccessfulLocatorValidator
-        successfulLocatorValidator =
-        new SuccessfulLocatorValidator();
+
 
 
 public HealingWebDriver(
@@ -88,71 +91,74 @@ if (runtimeHealedLocator != null) {
     }
 }
 
+  try {
+
+    HealingLogger.debug(
+            "Finding locator : "
+                    + locator);
+
+    WebElement element;
+
     try {
 
+        /*
+         * First try immediately.
+         */
+        element =
+                driver.findElement(locator);
+
+    } catch (NoSuchElementException
+             | StaleElementReferenceException firstFailure) {
+
+        /*
+         * IMPORTANT:
+         *
+         * The application may still be rendering.
+         *
+         * Give the original locator a chance to
+         * become available before starting healing.
+         */
         HealingLogger.debug(
-                "Finding locator : "
+                "LOCATOR NOT AVAILABLE IMMEDIATELY | "
                         + locator);
 
-WebElement element =
-        driver.findElement(locator);
+        try {
 
-FailureContext context =
-        failureContextFactory.build(
-                driver,
-                locator);
+            WebDriverWait wait =
+                    new WebDriverWait(
+                            driver,
+                            Duration.ofSeconds(
+                                    config.getWaitTimeoutSeconds()));
 
-boolean suspicious =
-        successfulLocatorValidator
-                .isSuspicious(
-                        context,
-                        element);
-
-
-                        System.out.println("Suspicious = " + suspicious);
-        if (suspicious) {
+            element =
+                    wait.until(
+                            ExpectedConditions
+                                    .presenceOfElementLocated(
+                                            locator));
 
             HealingLogger.debug(
-                    "LOCATOR EXISTS BUT APPEARS "
-                            + "SEMANTICALLY INCORRECT");
-
-            HealingLogger.debug(
-                    "Attempting corrective healing : "
+                    "LOCATOR APPEARED AFTER WAIT | "
                             + locator);
 
-            WebElement healedElement =
-                    healingEngine.heal(
-                            driver,
-                            locator);
-
-            if (healedElement != null) {
-
-                HealingLogger.debug(
-        "HEALED RETURN | requested="
-                + locator
-                + " | actualTag="
-                + healedElement.getTagName()
-                + " | data-test="
-                + healedElement.getAttribute("data-test")
-                + " | id="
-                + healedElement.getAttribute("id"));
-
-                return new HealingWebElement(
-                        healedElement,
-                        locator,
-                        this);
-            }
+        } catch (TimeoutException timeoutException) {
 
             /*
-             * If corrective healing cannot safely
-             * find another element, do not silently
-             * return the suspicious original element.
+             * Original locator genuinely did not
+             * appear within the configured timeout.
+             *
+             * Continue into the existing healing flow.
              */
-            throw new NoSuchElementException(
-                    "Existing locator resolved to "
-                            + "a suspicious element : "
+            HealingLogger.debug(
+                    "LOCATOR STILL NOT FOUND AFTER "
+                            + config.getWaitTimeoutSeconds()
+                            + " SECONDS | "
                             + locator);
+
+            throw firstFailure;
         }
+    }
+
+
 HealingLogger.debug(
         "NORMAL RETURN | requested="
                 + locator
@@ -187,68 +193,127 @@ HealingLogger.debug(
     }
 
 
-    HealingLogger.debug(
-            "Attempting self healing...");
+   HealingLogger.debug(
+        "DEFERRING HEALING UNTIL ELEMENT ACTION | "
+                + locator);
 
-    try {
+return HealingWebElement.deferred(
+        locator,
+        this);
 
-        WebElement healedElement =
-                healingEngine.heal(
-                        driver,
-                        locator);
 
-        if (healedElement != null) {
-
-            HealingLogger.debug(
-        "HEALED RETURN | requested="
-                + locator
-                + " | actualTag="
-                + healedElement.getTagName()
-                + " | data-test="
-                + healedElement.getAttribute("data-test")
-                + " | id="
-                + healedElement.getAttribute("id"));
-
-               
-
-            return new HealingWebElement(
-                    healedElement,
-                    locator,
-                    this);
-        }
-
-        /*
-         * Healing may intentionally return null.
-         *
-         * Example:
-         * - negative verification
-         * - optional element
-         * - element expected to appear later
-         *
-         * Preserve normal Selenium behaviour so that
-         * WebDriverWait can continue polling.
-         */
-        throw originalException;
-
-    } catch (
-            NoSuchElementException
-                    | StaleElementReferenceException seleniumException) {
-
-        throw seleniumException;
-
-    } catch (Exception healingException) {
-
-        throw new RuntimeException(
-                "Healing failed for locator : "
-                        + locator,
-                healingException);
-    }
 }catch (Exception exception) {
 
         throw new RuntimeException(
                 "Element lookup failed for locator : "
                         + locator,
                 exception);
+    }
+}
+/*
+ * =========================================================
+ * ACTION-AWARE ELEMENT RESOLUTION
+ * =========================================================
+ *
+ * Called by HealingWebElement after the caller's action
+ * is known.
+ *
+ * Example:
+ *
+ * findElement(brokenLocator).sendKeys(...)
+ *
+ * At this point SEND_KEYS has already been recorded.
+ */
+WebElement resolveForAction(
+        By locator,
+        ExecutionAction action) {
+
+    HealingLogger.debug(
+            "ACTION-AWARE RESOLUTION | locator="
+                    + locator
+                    + " | action="
+                    + action);
+
+    /*
+     * First try the original locator again.
+     *
+     * The element may have appeared after the original
+     * lookup failed.
+     */
+    try {
+
+        WebElement element =
+                driver.findElement(locator);
+
+        HealingLogger.debug(
+                "ACTION-AWARE ORIGINAL LOCATOR SUCCESS | "
+                        + locator
+                        + " | tag="
+                        + element.getTagName());
+
+        return element;
+
+    } catch (Exception originalFailure) {
+
+        HealingLogger.debug(
+                "ACTION-AWARE ORIGINAL LOCATOR FAILED | "
+                        + locator
+                        + " | action="
+                        + action);
+    }
+
+    /*
+     * The action has already been recorded by
+     * HealingWebElement.executeAction().
+     *
+     * Therefore FailureContextBuilder can now see:
+     *
+     * SEND_KEYS
+     * CLEAR
+     * CLICK
+     * etc.
+     */
+        try {
+
+       WebElement healedElement =
+        healingEngine.heal(
+                driver,
+                locator,
+                action);
+
+        if (healedElement == null) {
+
+            throw new NoSuchElementException(
+                    "Unable to heal locator : "
+                            + locator
+                            + " | action="
+                            + action);
+        }
+
+        HealingLogger.debug(
+                "ACTION-AWARE HEAL SUCCESS | "
+                        + "locator="
+                        + locator
+                        + " | action="
+                        + action
+                        + " | actualTag="
+                        + healedElement.getTagName());
+
+        return healedElement;
+
+    } catch (NoSuchElementException e) {
+
+        throw e;
+
+    } catch (Exception e) {
+
+        throw new RuntimeException(
+                "Action-aware healing failed | "
+                        + "locator="
+                        + locator
+                        + " | action="
+                        + action,
+                e);
     }
 }
 @Override

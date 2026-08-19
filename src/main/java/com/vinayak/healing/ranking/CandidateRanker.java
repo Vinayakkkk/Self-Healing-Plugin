@@ -1,11 +1,15 @@
 package com.vinayak.healing.ranking;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import com.vinayak.healing.similarity.SimilarityUtil;
 import com.vinayak.healing.analysis.DynamicPatternAnalyzer;
 import com.vinayak.healing.analysis.LocatorQualityAnalyzer;
 import com.vinayak.healing.intent.ElementIntent;
+import com.vinayak.healing.learning.LearningEngine;
+import com.vinayak.healing.learning.LearningKey;
+import com.vinayak.healing.learning.LearningRecord;
 import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
 
@@ -16,15 +20,19 @@ public class CandidateRanker {
     private final ParentScorer parentScorer =
         new ParentScorer();
 
+        private final LearningEngine learningEngine =
+        new LearningEngine();
+
     private final DynamicPatternAnalyzer dynamicAnalyzer =
             new DynamicPatternAnalyzer();
 
     private final LocatorQualityAnalyzer qualityAnalyzer =
             new LocatorQualityAnalyzer();
 
-    public List<LocatorCandidate> rank(
-            FailureContext context,
-            List<LocatorCandidate> candidates) {
+   public List<LocatorCandidate> rank(
+        FailureContext context,
+        List<LocatorCandidate> candidates,
+        boolean collectionMode) {
 
         if (context == null
                 || candidates == null
@@ -159,7 +167,57 @@ score += calculateExactElementTextScore(
 
            score += calculateQualityScore(candidate);
 
+          double learningScore =
+        calculateLearningScore(
+                context,
+                candidate,
+                collectionMode);
+score += learningScore;
+
+System.out.println(
+        "LEARNING SCORE CONTRIBUTION"
+        + " | candidate="
+        + candidate.getLocatorType()
+        + "="
+        + candidate.getLocatorValue()
+        + " | learningScore="
+        + learningScore);
+
+/*
+ * ==========================================================
+ * RANKING 2.0 — EVIDENCE AGREEMENT / CONFLICT
+ * ==========================================================
+ *
+ * The existing Ranking 1.x score remains the baseline.
+ * Ranking 2.0 does NOT replace or recalculate that score.
+ *
+ * It evaluates whether the existing evidence comes from
+ * independent dimensions and whether those dimensions agree.
+ *
+ * IMPORTANT:
+ * - No existing ranking signal is removed.
+ * - No existing score weight is changed.
+ * - CandidateFilter/CandidateValidator contracts remain intact.
+ * - Adjustment is deliberately bounded.
+ */
+double ranking2Adjustment =
+        calculateRanking2EvidenceAdjustment(
+                context,
+                candidate,
+                collectionMode);
+
+score += ranking2Adjustment;
+
+System.out.println(
+        "Ranking 2.0    : "
+                + ranking2Adjustment);
+
+
             System.out.println("\n===== SCORE BREAKDOWN =====");
+
+            System.out.println(
+        "Learning       : "
+                + learningScore);
 System.out.println(candidate.getLocatorType() + "=" + candidate.getLocatorValue());
 
 System.out.println(
@@ -946,6 +1004,252 @@ private double calculateQualityScore(
             * LOCATOR_QUALITY_WEIGHT;
 }
 
+/*
+ * ==========================================================
+ * RANKING 2.0
+ * ==========================================================
+ *
+ * Ranking 1.x already contains the detailed scoring logic.
+ * These methods deliberately sit inside CandidateRanker so
+ * the frozen architecture is preserved.
+ *
+ * Ranking 2.0 does not treat every existing score as an
+ * independent reason. It evaluates evidence families:
+ *
+ *   1. Identity / semantic family
+ *   2. Structural / business family
+ *   3. Locator quality family
+ *   4. Historical learning family
+ *
+ * The adjustment is bounded so the existing score remains
+ * authoritative and current healing behaviour is protected.
+ */
+
+private double calculateRanking2EvidenceAdjustment(
+        FailureContext context,
+        LocatorCandidate candidate,
+        boolean collectionMode) {
+
+    if (context == null || candidate == null) {
+        return 0.0;
+    }
+
+    /*
+     * Existing evidence scores are intentionally reused.
+     * We do NOT create a second scoring system.
+     */
+    double identity =
+            calculateIdentityScore(context, candidate);
+
+    double semantic =
+            calculateSemanticSimilarityScore(context, candidate);
+
+    double failedSimilarity =
+            calculateFailedLocatorSimilarityScore(
+                    context,
+                    candidate);
+
+    double exactText =
+            calculateExactElementTextScore(
+                    context,
+                    candidate);
+
+    double dom =
+            calculateDomContextScore(
+                    context,
+                    candidate);
+
+    double business =
+            calculateBusinessContextScore(
+                    context,
+                    candidate);
+
+    double uniqueness =
+            calculateUniquenessScore(candidate);
+
+    double dynamic =
+            calculateDynamicScore(
+                    context,
+                    candidate);
+
+    double quality =
+            calculateQualityScore(candidate);
+
+   double learning =
+        calculateLearningScore(
+                context,
+                candidate,
+                collectionMode);
+
+    /*
+     * ------------------------------------------------------
+     * Evidence families
+     * ------------------------------------------------------
+     *
+     * Identity, semantic similarity, failed-locator
+     * similarity and exact text are partially correlated.
+     *
+     * Therefore they are NOT counted as four independent
+     * evidence sources.
+     */
+    boolean strongIdentity =
+            identity >= 300;
+
+    boolean strongSemantic =
+            semantic >= 350;
+
+    boolean strongText =
+            exactText >= 450;
+
+    boolean supportingIdentity =
+            identity >= 150
+                    || failedSimilarity >= 75;
+
+    /*
+     * Structural evidence is a separate family, although
+     * DOM and business context themselves partially overlap.
+     */
+    boolean strongStructure =
+            dom >= 60
+                    || business >= 300;
+
+    boolean supportingStructure =
+            dom >= 25
+                    || business >= 150;
+
+    /*
+     * Locator quality is independent from element identity.
+     */
+    boolean strongQuality =
+            uniqueness >= 150
+                    && quality >= 100;
+
+    boolean stableQuality =
+            uniqueness >= 150
+                    || quality >= 100
+                    || dynamic > 0;
+
+    /*
+     * Historical learning is independent because it comes
+     * from a previous successful execution rather than only
+     * from the current DOM.
+     */
+    boolean strongLearning =
+            learning >= 700;
+
+    boolean supportingLearning =
+            learning >= 300;
+
+    double adjustment = 0.0;
+
+    /*
+     * ------------------------------------------------------
+     * AGREEMENT
+     * ------------------------------------------------------
+     */
+
+    /*
+     * Strong identity + structural confirmation.
+     */
+    if (strongIdentity && strongStructure) {
+        adjustment += 20.0;
+    }
+
+    /*
+     * Strong semantic/text evidence + structural confirmation.
+     */
+    if ((strongSemantic || strongText)
+            && strongStructure) {
+        adjustment += 15.0;
+    }
+
+    /*
+     * Strong current identity + independent locator quality.
+     */
+    if (strongIdentity && strongQuality) {
+        adjustment += 20.0;
+    }
+
+    /*
+     * Historical success + current evidence is especially
+     * valuable because the evidence sources are independent.
+     */
+    if (strongLearning
+            && (strongIdentity
+                || strongSemantic
+                || strongText)) {
+        adjustment += 25.0;
+    } else if (supportingLearning
+            && supportingIdentity) {
+        adjustment += 10.0;
+    }
+
+    /*
+     * ------------------------------------------------------
+     * CORRELATED EVIDENCE
+     * ------------------------------------------------------
+     *
+     * We deliberately DO NOT add another bonus merely because
+     * identity + semantic + failed-locator similarity are all
+     * high. The existing Ranking 1.x score already contains
+     * those contributions.
+     *
+     * Ranking 2.0 only rewards independent agreement.
+     */
+
+    /*
+     * ------------------------------------------------------
+     * CONFLICT / WEAKNESS
+     * ------------------------------------------------------
+     */
+
+    /*
+     * Strong semantic identity but poor uniqueness means the
+     * candidate may represent the right concept but not a
+     * safely unique locator.
+     */
+    if ((strongIdentity || strongSemantic || strongText)
+            && uniqueness <= -100) {
+        adjustment -= 20.0;
+    }
+
+    /*
+     * Strong identity with weak structural support is not a
+     * rejection, but confidence should not receive an
+     * additional Ranking 2.0 boost.
+     */
+    if (strongIdentity
+            && !supportingStructure
+            && !stableQuality) {
+        adjustment -= 10.0;
+    }
+
+    /*
+     * Strong semantic evidence with a weak locator-quality
+     * profile is a softer warning, not a hard rejection.
+     */
+    if ((strongSemantic || strongText)
+            && quality < 0
+            && uniqueness < 1) {
+        adjustment -= 10.0;
+    }
+
+    /*
+     * ------------------------------------------------------
+     * BOUNDED ADJUSTMENT
+     * ------------------------------------------------------
+     *
+     * Ranking 2.0 must never overpower the existing ranking
+     * system. This keeps Login healing and other existing
+     * scenarios protected while we tune the new intelligence.
+     */
+    return Math.max(
+            -40.0,
+            Math.min(
+                    60.0,
+                    adjustment));
+}
+
 private void printRanking(
         List<LocatorCandidate> candidates) {
 
@@ -1412,49 +1716,89 @@ if (hasText(context.getParentClass())
 
     return score;
 }
-
 private double calculateExactElementTextScore(
         FailureContext context,
         LocatorCandidate candidate) {
 
     if (context == null
             || candidate == null
-            || !hasText(context.getExpectedText())
             || !hasText(candidate.getElementText())) {
 
         return 0;
     }
 
-    String expected =
-            normalize(context.getExpectedText());
-
     String actual =
-            normalize(candidate.getElementText());
+            normalizeTextForComparison(
+                    candidate.getElementText());
 
-    if (expected.isBlank()
-            || actual.isBlank()) {
-
+    if (!hasText(actual)) {
         return 0;
     }
 
     /*
-     * Exact visible text is extremely strong identity
-     * evidence for a TEXT element.
+     * =====================================================
+     * EXPECTED TEXT
+     * =====================================================
+     *
+     * First use explicitly resolved expected text.
+     *
+     * If unavailable, recover semantic text alternatives
+     * directly from the failed locator.
      */
-    if (expected.equals(actual)) {
-        return 700;
+    String expected =
+            normalize(context.getExpectedText());
+
+    if (hasText(expected)) {
+
+        double score =
+                calculateTextMatchScore(
+                        expected,
+                        actual);
+
+        if (score > 0) {
+            return score;
+        }
     }
 
     /*
-     * Partial business-text match.
+     * =====================================================
+     * FAILED LOCATOR TEXT
+     * =====================================================
+     *
+     * A locator may contain multiple alternatives:
+     *
+     * contains(..., 'Record Found')
+     * OR
+     * contains(..., 'Records Found')
+     *
+     * Each extracted value must be evaluated
+     * independently.
      */
-    if (actual.contains(expected)
-            || expected.contains(actual)) {
+    List<String> locatorTexts =
+            extractTextHintsFromFailedLocator(
+                    context.getFailedLocator());
 
-        return 250;
+    double bestScore = 0;
+
+    for (String locatorText :
+            locatorTexts) {
+
+        if (!hasText(locatorText)) {
+            continue;
+        }
+
+        double score =
+                calculateTextMatchScore(
+                        locatorText,
+                        actual);
+
+        bestScore =
+                Math.max(
+                        bestScore,
+                        score);
     }
 
-    return 0;
+    return bestScore;
 }
 private double calculateBusinessContextScore(
         FailureContext context,
@@ -1637,5 +1981,923 @@ private double calculateFailedLocatorSimilarityScore(
     }
 
     return 0;
+}
+public double calculateLearningScore(
+        FailureContext context,
+        LocatorCandidate candidate,
+        boolean collectionMode) {
+
+    if (context == null || candidate == null) {
+        return 0.0;
+    }
+
+    String pageObjectClass =
+            extractPageObjectClass(
+                    context.getPageObjectPath());
+
+    String variableName =
+            safe(context.getVariableName());
+
+    String expectedIntent =
+            context.getExpectedIntent() == null
+                    ? "UNKNOWN"
+                    : context.getExpectedIntent().name();
+
+    String action =
+            context.getFailedAction() == null
+                    ? "UNKNOWN"
+                    : context.getFailedAction().name();
+
+    String failedLocator =
+            safe(context.getFailedLocator());
+
+    LearningKey key =
+            new LearningKey(
+                    pageObjectClass,
+                    variableName,
+                    expectedIntent,
+                    action,
+                    failedLocator);
+
+    List<LearningRecord> history =
+            learningEngine
+                    .getRepository()
+                    .find(key);
+
+    if (history == null || history.isEmpty()) {
+        return 0.0;
+    }
+
+    /*
+     * ==================================================
+     * CURRENT CANDIDATE IDENTITY
+     * ==================================================
+     */
+
+    String candidateType =
+            safe(candidate.getLocatorType());
+
+    String candidateValue =
+            safe(candidate.getLocatorValue());
+
+    /*
+     * ==================================================
+     * HISTORICAL AGGREGATION
+     * ==================================================
+     *
+     * We intentionally aggregate historical evidence
+     * instead of using Math.max().
+     *
+     * This allows repeated successful healing to
+     * strengthen future ranking.
+     */
+
+    int matchingAttempts = 0;
+    int matchingSuccesses = 0;
+
+    double totalOutcomeConfidence = 0.0;
+
+    double bestOutcomeConfidence = 0.0;
+
+    for (LearningRecord record : history) {
+
+        if (record == null) {
+            continue;
+        }
+
+        /*
+         * COLLECTION ranking must only learn from
+         * previous COLLECTION healing.
+         *
+         * Normal ranking can use all learning sources.
+         */
+        if (collectionMode) {
+
+            if (!"COLLECTION".equalsIgnoreCase(
+                    safe(record.getHealingSource()))) {
+
+                continue;
+            }
+        }
+
+       String learnedType =
+        safe(record.getSelectedLocatorType());
+
+String learnedValue =
+        safe(record.getSelectedLocatorValue());
+
+/*
+ * ==================================================
+ * HISTORICAL LOCATOR MATCH
+ * ==================================================
+ *
+ * Do not require only raw locator equality.
+ *
+ * Reuse the existing learned-locator similarity
+ * logic so historical learning can recognize:
+ *
+ * 1. Exact locator match
+ * 2. Same semantic text
+ * 3. Same XPath text
+ * 4. Same stable attribute
+ */
+double learnedLocatorSimilarity =
+        calculateLearnedLocatorSimilarity(
+                candidate,
+                record);
+
+System.out.println(
+        "LEARNING MATCH CHECK"
+                + " | candidate="
+                + candidateType
+                + "="
+                + candidateValue
+                + " | learned="
+                + learnedType
+                + "="
+                + learnedValue
+                + " | similarity="
+                + learnedLocatorSimilarity
+                + " | success="
+                + record.isOutcomeSuccess()
+                + " | healingAllowed="
+                + record.isHealingAllowed()
+                + " | outcomeConfidence="
+                + record.getOutcomeConfidence()
+                + " | source="
+                + record.getHealingSource());
+
+if (learnedLocatorSimilarity <= 0.0) {
+    continue;
+}
+
+        /*
+         * Count every matching historical attempt.
+         *
+         * This allows failures to reduce reliability.
+         */
+        matchingAttempts++;
+
+        /*
+         * Only successful + allowed healing is allowed
+         * to contribute positive learning.
+         */
+        if (!record.isOutcomeSuccess()) {
+            continue;
+        }
+
+        if (!record.isHealingAllowed()) {
+            continue;
+        }
+
+        double outcomeConfidence =
+                record.getOutcomeConfidence();
+
+        if (outcomeConfidence <= 0) {
+            continue;
+        }
+
+        matchingSuccesses++;
+
+        totalOutcomeConfidence +=
+                outcomeConfidence;
+
+        bestOutcomeConfidence =
+                Math.max(
+                        bestOutcomeConfidence,
+                        outcomeConfidence);
+    }
+
+    /*
+     * No successful historical evidence
+     * for this exact locator.
+     */
+    if (matchingSuccesses == 0) {
+        return 0.0;
+    }
+
+    /*
+     * ==================================================
+     * HISTORICAL RELIABILITY
+     * ==================================================
+     *
+     * Example:
+     *
+     * 1 success / 1 attempt = 1.00
+     * 2 success / 2 attempts = 1.00
+     * 2 success / 3 attempts = 0.67
+     */
+
+    double reliability =
+            matchingSuccesses
+                    / (double) matchingAttempts;
+
+    /*
+     * ==================================================
+     * AVERAGE OUTCOME CONFIDENCE
+     * ==================================================
+     */
+
+    double averageOutcomeConfidence =
+            totalOutcomeConfidence
+                    / matchingSuccesses;
+
+    /*
+     * ==================================================
+     * REPEATED SUCCESS BONUS
+     * ==================================================
+     *
+     * First successful learning:
+     *      +0
+     *
+     * Second:
+     *      +50
+     *
+     * Third:
+     *      +100
+     *
+     * ...
+     *
+     * Maximum repeated-success bonus:
+     *      +250
+     *
+     * This prevents unlimited score inflation.
+     */
+
+    int repeatedSuccesses =
+            Math.max(
+                    0,
+                    matchingSuccesses - 1);
+
+    double repeatedSuccessBonus =
+            Math.min(
+                    repeatedSuccesses * 50.0,
+                    250.0);
+
+    /*
+     * ==================================================
+     * RELIABILITY ADJUSTMENT
+     * ==================================================
+     *
+     * Historical learning becomes weaker when the
+     * same locator has failed in previous executions.
+     */
+
+    double reliabilityAdjustedBonus =
+            repeatedSuccessBonus
+                    * reliability;
+
+    double reliabilityAdjustedConfidence =
+            averageOutcomeConfidence
+                    * reliability;
+
+    /*
+     * ==================================================
+     * FINAL EXACT LEARNING SCORE
+     * ==================================================
+     *
+     * First successful record:
+     *
+     * 1000 + 50 = 1050
+     *
+     * Second successful record:
+     *
+     * 1000 + 50 + 50 = 1100
+     *
+     * Third successful record:
+     *
+     * 1000 + 50 + 100 = 1150
+     *
+     * Maximum:
+     *
+     * 1000 + confidence + 250
+     */
+
+    double exactLearningScore =
+            1000.0
+                    + reliabilityAdjustedConfidence
+                    + reliabilityAdjustedBonus;
+
+    /*
+     * Never allow historical learning to become
+     * unbounded.
+     */
+
+    exactLearningScore =
+            Math.min(
+                    exactLearningScore,
+                    1300.0);
+
+    System.out.println(
+            "LEARNING AGGREGATED MATCH | "
+                    + candidateType
+                    + "="
+                    + candidateValue
+                    + " | attempts="
+                    + matchingAttempts
+                    + " | successes="
+                    + matchingSuccesses
+                    + " | reliability="
+                    + reliability
+                    + " | avgConfidence="
+                    + averageOutcomeConfidence
+                    + " | learningScore="
+                    + exactLearningScore
+                    + " | source="
+                    + (collectionMode
+                            ? "COLLECTION"
+                            : "ALL"));
+
+    return exactLearningScore;
+}
+private String extractPageObjectClass(
+        String pageObjectPath) {
+
+    if (pageObjectPath == null
+            || pageObjectPath.isBlank()) {
+
+        return "UNKNOWN";
+    }
+
+    String normalized =
+            pageObjectPath
+                    .replace("\\", "/");
+
+    int slash =
+            normalized.lastIndexOf('/');
+
+    String fileName =
+            slash >= 0
+                    ? normalized.substring(
+                            slash + 1)
+                    : normalized;
+
+    if (fileName.endsWith(".java")) {
+
+        fileName =
+                fileName.substring(
+                        0,
+                        fileName.length() - 5);
+    }
+
+    return normalize(fileName);
+}
+private double calculateLearnedLocatorSimilarity(
+        LocatorCandidate candidate,
+        LearningRecord record) {
+
+    if (candidate == null || record == null) {
+        return 0.0;
+    }
+
+    String candidateType =
+            canonicalLocatorType(
+                    safe(candidate.getLocatorType()));
+
+    String candidateValue =
+            safe(candidate.getLocatorValue());
+
+    String learnedType =
+            canonicalLocatorType(
+                    safe(record.getSelectedLocatorType()));
+
+    String learnedValue =
+            safe(record.getSelectedLocatorValue());
+
+            System.out.println(
+        "LEARNING RAW VALUES"
+        + " | candidateType=[" + candidateType + "]"
+        + " | candidateValue=[" + candidateValue + "]"
+        + " | learnedType=[" + learnedType + "]"
+        + " | learnedValue=[" + learnedValue + "]"
+        + " | candidateTypeLength=" + candidateType.length()
+        + " | candidateValueLength=" + candidateValue.length()
+        + " | learnedTypeLength=" + learnedType.length()
+        + " | learnedValueLength=" + learnedValue.length());
+
+    if ("UNKNOWN".equals(candidateType)
+            || "UNKNOWN".equals(candidateValue)
+            || "UNKNOWN".equals(learnedType)
+            || "UNKNOWN".equals(learnedValue)) {
+
+        return 0.0;
+    }
+
+    /*
+     * EXACT HISTORICAL LOCATOR
+     */
+   /*
+ * EXACT HISTORICAL LOCATOR
+ */
+boolean typeMatch =
+        candidateType.equalsIgnoreCase(learnedType);
+
+boolean valueMatch =
+        candidateValue.equalsIgnoreCase(learnedValue);
+
+System.out.println(
+        "LEARNING EXACT CHECK"
+        + " | typeMatch=" + typeMatch
+        + " | valueMatch=" + valueMatch);
+
+if (typeMatch && valueMatch) {
+
+    System.out.println(
+            "LEARNING LOCATOR EXACT MATCH | "
+                    + candidateType
+                    + "="
+                    + candidateValue);
+
+    return 200.0;
+}
+
+    /*
+     * SEMANTIC TEXT MATCH
+     */
+    String learnedSemanticText =
+            extractSemanticText(
+                    learnedType,
+                    learnedValue);
+
+    String candidateSemanticText =
+            extractSemanticText(
+                    candidateType,
+                    candidateValue);
+
+    if (!isBlank(learnedSemanticText)
+            && !isBlank(candidateSemanticText)
+            && learnedSemanticText.equalsIgnoreCase(
+                    candidateSemanticText)) {
+
+        return 150.0;
+    }
+
+    /*
+     * XPATH TEXT MATCH
+     */
+    if (isXPath(learnedType)
+            && isXPath(candidateType)) {
+
+        String learnedText =
+                extractXPathText(learnedValue);
+
+        String candidateText =
+                extractXPathText(candidateValue);
+
+        if (!isBlank(learnedText)
+                && !isBlank(candidateText)
+                && learnedText.equalsIgnoreCase(candidateText)) {
+
+            return 150.0;
+        }
+    }
+
+    /*
+     * STABLE ATTRIBUTE MATCH
+     */
+    if (isStableLocatorType(learnedType)
+            && isStableLocatorType(candidateType)
+            && learnedValue.equalsIgnoreCase(candidateValue)) {
+
+        return 100.0;
+    }
+
+    return 0.0;
+}
+private String extractSemanticText(
+        String locatorType,
+        String locatorValue) {
+
+    if (isBlank(locatorValue)) {
+        return null;
+    }
+
+    /*
+     * Direct text locator.
+     */
+    if ("text".equalsIgnoreCase(locatorType)
+            || "linktext".equalsIgnoreCase(locatorType)
+            || "partiallinktext".equalsIgnoreCase(locatorType)) {
+
+        return normalizeSemanticText(
+                locatorValue);
+    }
+
+    /*
+     * XPath containing:
+     *
+     * normalize-space()='Search'
+     *
+     * or
+     *
+     * text()='Search'
+     */
+    if (isXPath(locatorType)) {
+
+        return extractXPathText(
+                locatorValue);
+    }
+
+    return null;
+}
+private String extractXPathText(
+        String xpath) {
+
+    if (isBlank(xpath)) {
+        return null;
+    }
+
+    /*
+     * normalize-space()='Search'
+     */
+    java.util.regex.Pattern normalizePattern =
+            java.util.regex.Pattern.compile(
+                    "normalize-space\\(\\)\\s*=\\s*['\"]([^'\"]+)['\"]",
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    java.util.regex.Matcher normalizeMatcher =
+            normalizePattern.matcher(xpath);
+
+    if (normalizeMatcher.find()) {
+
+        return normalizeSemanticText(
+                normalizeMatcher.group(1));
+    }
+
+    /*
+     * text()='Search'
+     */
+    java.util.regex.Pattern textPattern =
+            java.util.regex.Pattern.compile(
+                    "text\\(\\)\\s*=\\s*['\"]([^'\"]+)['\"]",
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    java.util.regex.Matcher textMatcher =
+            textPattern.matcher(xpath);
+
+    if (textMatcher.find()) {
+
+        return normalizeSemanticText(
+                textMatcher.group(1));
+    }
+
+    return null;
+}
+private String normalizeSemanticText(
+        String value) {
+
+    if (isBlank(value)) {
+        return null;
+    }
+
+    return value
+            .replaceAll("\\s+", " ")
+            .trim();
+}
+private boolean isXPath(
+        String locatorType) {
+
+    return "xpath".equalsIgnoreCase(
+            locatorType);
+}
+
+private String canonicalLocatorType(String locatorType) {
+
+    if (locatorType == null
+            || locatorType.isBlank()) {
+
+        return "UNKNOWN";
+    }
+
+    String type =
+            locatorType
+                    .trim()
+                    .toLowerCase();
+
+    type = type.replace("by.", "");
+
+    switch (type) {
+
+        case "classname":
+        case "class_name":
+        case "class":
+            return "class";
+
+        case "cssselector":
+        case "css_selector":
+        case "css":
+            return "css";
+
+        case "id":
+            return "id";
+
+        case "name":
+            return "name";
+
+        case "xpath":
+            return "xpath";
+
+        case "linktext":
+        case "link_text":
+            return "linktext";
+
+        case "partiallinktext":
+        case "partial_link_text":
+            return "partiallinktext";
+
+        case "data-testid":
+        case "data_testid":
+            return "data-testid";
+
+        case "data-test":
+        case "data_test":
+            return "data-test";
+
+        case "data-qa":
+        case "data_qa":
+            return "data-qa";
+
+        case "data-cy":
+        case "data_cy":
+            return "data-cy";
+
+        case "aria-label":
+        case "arialabel":
+            return "aria-label";
+
+        case "placeholder":
+            return "placeholder";
+
+        case "text":
+            return "text";
+
+        default:
+            return type;
+    }
+}
+private boolean isStableLocatorType(
+        String locatorType) {
+
+    if (isBlank(locatorType)) {
+        return false;
+    }
+
+    switch (locatorType
+            .trim()
+            .toLowerCase()) {
+
+        case "id":
+        case "name":
+        case "css":
+        case "cssselector":
+        case "data-test":
+        case "data-testid":
+        case "data-qa":
+        case "data-cy":
+        case "aria-label":
+            return true;
+
+        default:
+            return false;
+    }
+}
+private boolean isBlank(
+        String value) {
+
+    return value == null
+            || value.isBlank();
+}
+private String safe(
+        String value) {
+
+    if (value == null
+            || value.isBlank()) {
+
+        return "UNKNOWN";
+    }
+
+    return value.trim();
+}
+
+private String normalizeTextForComparison(
+        String value) {
+
+    if (!hasText(value)) {
+        return "";
+    }
+
+    return value
+            .replaceAll(
+                    "^\\(\\s*\\d+\\s*\\)\\s*",
+                    "")
+            .replaceAll(
+                    "^\\d+\\s*",
+                    "")
+            .trim()
+            .replaceAll(
+                    "\\s+",
+                    " ")
+            .toLowerCase();
+}
+private double calculateTextMatchScore(
+        String expected,
+        String actual) {
+
+    if (!hasText(expected)
+            || !hasText(actual)) {
+
+        return 0;
+    }
+
+    expected =
+            normalizeTextForComparison(
+                    expected);
+
+    actual =
+            normalizeTextForComparison(
+                    actual);
+
+    /*
+     * Exact visible text.
+     */
+    if (expected.equals(actual)) {
+        return 700;
+    }
+
+    /*
+     * Dynamic numeric prefix.
+     *
+     * Example:
+     *
+     * expected = "Records Found"
+     * actual   = "(29) Records Found"
+     */
+    if (actual.matches(
+            "^\\(?\\d+\\)?\\s+"
+                    + java.util.regex.Pattern.quote(expected)
+                    + "$")) {
+
+        return 650;
+    }
+
+    /*
+     * Expected text contained in candidate text.
+     */
+    if (actual.contains(expected)) {
+        return 500;
+    }
+
+    /*
+     * Reverse containment.
+     */
+    if (expected.contains(actual)) {
+        return 250;
+    }
+
+    /*
+     * Meaningful token coverage.
+     *
+     * This handles small wording variations while
+     * avoiding an exact-string requirement.
+     */
+    double coverage =
+            tokenCoverage(
+                    expected,
+                    actual);
+
+    if (coverage >= 1.0) {
+        return 450;
+    }
+
+    if (coverage >= 0.75) {
+        return 350;
+    }
+
+    if (coverage >= 0.50) {
+        return 200;
+    }
+
+    return 0;
+}
+private List<String> extractTextHintsFromFailedLocator(
+        String failedLocator) {
+
+    List<String> values =
+            new java.util.ArrayList<>();
+
+    if (!hasText(failedLocator)) {
+        return values;
+    }
+
+    String locator =
+            failedLocator.trim();
+
+    /*
+     * =====================================================
+     * normalize-space()='...'
+     * =====================================================
+     */
+    java.util.regex.Pattern normalizeSpacePattern =
+            java.util.regex.Pattern.compile(
+                    "normalize-space\\(\\)\\s*=\\s*['\"]([^'\"]+)['\"]",
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    java.util.regex.Matcher matcher =
+            normalizeSpacePattern.matcher(locator);
+
+    while (matcher.find()) {
+
+        String value =
+                normalize(matcher.group(1));
+
+        if (hasText(value)
+                && !values.contains(value)) {
+
+            values.add(value);
+        }
+    }
+
+    /*
+     * =====================================================
+     * text()='...'
+     * =====================================================
+     */
+    java.util.regex.Pattern textPattern =
+            java.util.regex.Pattern.compile(
+                    "text\\(\\)\\s*=\\s*['\"]([^'\"]+)['\"]",
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    matcher =
+            textPattern.matcher(locator);
+
+    while (matcher.find()) {
+
+        String value =
+                normalize(matcher.group(1));
+
+        if (hasText(value)
+                && !values.contains(value)) {
+
+            values.add(value);
+        }
+    }
+
+    /*
+     * =====================================================
+     * contains(normalize-space(), '...')
+     * =====================================================
+     */
+    java.util.regex.Pattern containsPattern =
+            java.util.regex.Pattern.compile(
+                    "contains\\s*\\("
+                            + "\\s*normalize-space\\s*\\(\\s*\\)"
+                            + "\\s*,\\s*['\"]([^'\"]+)['\"]"
+                            + "\\s*\\)",
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    matcher =
+            containsPattern.matcher(locator);
+
+    while (matcher.find()) {
+
+        String value =
+                normalize(matcher.group(1));
+
+        if (hasText(value)
+                && !values.contains(value)) {
+
+            values.add(value);
+        }
+    }
+
+    /*
+     * =====================================================
+     * contains(text(), '...')
+     * =====================================================
+     */
+    java.util.regex.Pattern containsTextPattern =
+            java.util.regex.Pattern.compile(
+                    "contains\\s*\\("
+                            + "\\s*text\\s*\\(\\s*\\)"
+                            + "\\s*,\\s*['\"]([^'\"]+)['\"]"
+                            + "\\s*\\)",
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    matcher =
+            containsTextPattern.matcher(locator);
+
+    while (matcher.find()) {
+
+        String value =
+                normalize(matcher.group(1));
+
+        if (hasText(value)
+                && !values.contains(value)) {
+
+            values.add(value);
+        }
+    }
+
+    return values;
 }
 }

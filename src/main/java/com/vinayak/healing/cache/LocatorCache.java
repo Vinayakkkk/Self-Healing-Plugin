@@ -53,16 +53,69 @@ private static String safe(String value) {
     // =====================================
 
     public static LocatorSuggestion get(
-            String cacheKey) {
+        String cacheKey) {
 
-        if (cacheKey == null
-                || cacheKey.isBlank()) {
+    System.out.println(
+            "\n========== CACHE LOOKUP ==========");
 
-            return null;
+    System.out.println(
+            "Requested Cache Key : "
+                    + cacheKey);
+
+    if (cacheKey == null
+            || cacheKey.isBlank()) {
+
+        System.out.println(
+                "CACHE LOOKUP SKIPPED : Empty key");
+
+        System.out.println(
+                "=================================");
+
+        return null;
+    }
+
+    LocatorSuggestion suggestion =
+            CACHE.get(cacheKey);
+
+    if (suggestion == null) {
+
+        System.out.println(
+                "CACHE MISS");
+
+        System.out.println(
+                "Current Cache Size : "
+                        + CACHE.size());
+
+        System.out.println(
+                "Available Cache Keys:");
+
+        for (String key : CACHE.keySet()) {
+
+            System.out.println(
+                    "  -> " + key);
         }
 
-        return CACHE.get(cacheKey);
+    } else {
+
+        System.out.println(
+                "CACHE HIT");
+
+        System.out.println(
+                "Cached Locator : "
+                        + suggestion.getLocatorType()
+                        + "="
+                        + suggestion.getLocatorValue());
+
+        System.out.println(
+                "Confidence : "
+                        + suggestion.getConfidence());
     }
+
+    System.out.println(
+            "=================================");
+
+    return suggestion;
+}
 
     // =====================================
     // PUT

@@ -25,7 +25,7 @@ private interface ElementAction {
     WebElement execute();
 }
 
-private final WebElement delegate;
+private WebElement delegate;
 private final By originalLocator;
 private final HealingWebDriver driver;
 
@@ -46,6 +46,16 @@ public HealingWebElement(
     this.delegate = delegate;
     this.originalLocator = originalLocator;
     this.driver = driver;
+}
+
+public static HealingWebElement deferred(
+        By locator,
+        HealingWebDriver driver) {
+
+    return new HealingWebElement(
+            null,
+            locator,
+            driver);
 }
 
 private void executeAction(
@@ -105,9 +115,13 @@ public void click() {
             ExecutionAction.CLICK,
             () -> {
 
-                delegate.click();
+                WebElement actual =
+                        resolveForAction(
+                                ExecutionAction.CLICK);
 
-                return delegate;
+                actual.click();
+
+                return actual;
             });
 }
 
@@ -130,69 +144,89 @@ public void sendKeys(
 
     HealingLogger.debug(
             "SEND_KEYS CALLED | originalLocator="
-                    + originalLocator
-                    + " | actualTag="
-                    + delegate.getTagName()
-                    + " | data-test="
-                    + delegate.getAttribute("data-test")
-                    + " | id="
-                    + delegate.getAttribute("id"));
+                    + originalLocator);
 
-    executeAction(
-            ExecutionAction.SEND_KEYS,
-            () -> {
+    /*
+     * IMPORTANT:
+     *
+     * Record the real user action BEFORE resolving
+     * the deferred element.
+     *
+     * The healing pipeline must know that this locator
+     * is being requested for SEND_KEYS.
+     */
+    ExecutionTracker.recordAction(
+            ExecutionAction.SEND_KEYS.name());
 
-                ElementCapability capability =
-                        actionCapabilityResolver.resolve(
-                                ExecutionAction.SEND_KEYS);
+    try {
 
-                /*
-                 * IMPORTANT:
-                 *
-                 * If the element already supports
-                 * SEND_KEYS, use it directly.
-                 *
-                 * Do NOT unnecessarily recover it.
-                 *
-                 * Recovery is only required when the
-                 * located element cannot perform the
-                 * requested action.
-                 */
-                if (capability != null
-                        && capabilityValidator.supports(
-                                delegate,
-                                capability)) {
+        WebElement actual =
+                resolveForAction(
+                        ExecutionAction.SEND_KEYS);
 
-                    HealingLogger.debug(
-                            "SEND_KEYS DIRECT | "
-                                    + "element already supports TYPE"
-                                    + " | tag="
-                                    + delegate.getTagName());
+        HealingLogger.debug(
+                "SEND_KEYS TARGET | tag="
+                        + actual.getTagName()
+                        + " | id="
+                        + actual.getAttribute("id")
+                        + " | class="
+                        + actual.getAttribute("class"));
 
-                    delegate.sendKeys(keysToSend);
+        ElementCapability capability =
+                actionCapabilityResolver.resolve(
+                        ExecutionAction.SEND_KEYS);
 
-                    return delegate;
-                }
+        if (capability != null
+                && capabilityValidator.supports(
+                        actual,
+                        capability)) {
 
-                /*
-                 * Current element cannot perform the
-                 * requested action.
-                 *
-                 * Now try action recovery.
-                 */
-                WebElement target =
-                        actionRecoveryEngine.recover(
-                                delegate,
-                                capability);
+            HealingLogger.debug(
+                    "SEND_KEYS DIRECT | tag="
+                            + actual.getTagName());
 
-                HealingLogger.debug(
-                        "SEND_KEYS RECOVERED | tag="
-                                + target.getTagName());
+            actual.sendKeys(keysToSend);
 
-                target.sendKeys(keysToSend);
+            ExecutionTracker.clearAction();
 
-                return target;
-            });
+            ExecutionRecorder.record(
+                    actual,
+                    originalLocator,
+                    driver);
+
+            return;
+        }
+
+        WebElement target =
+                actionRecoveryEngine.recover(
+                        actual,
+                        capability);
+
+        HealingLogger.debug(
+                "SEND_KEYS RECOVERED | tag="
+                        + target.getTagName());
+
+        target.sendKeys(keysToSend);
+
+        ExecutionTracker.clearAction();
+
+        ExecutionRecorder.record(
+                target,
+                originalLocator,
+                driver);
+
+    } catch (RuntimeException e) {
+
+        /*
+         * DO NOT clear the action.
+         *
+         * FailureContextBuilder still needs SEND_KEYS.
+         */
+        HealingLogger.debug(
+                "ACTION FAILED | preserving action for healing = SEND_KEYS");
+
+        throw e;
+    }
 }
 
 @Override
@@ -200,17 +234,23 @@ public void clear() {
 
     HealingLogger.debug(
             "CLEAR CALLED | originalLocator="
-                    + originalLocator
-                    + " | actualTag="
-                    + delegate.getTagName()
-                    + " | data-test="
-                    + delegate.getAttribute("data-test")
-                    + " | id="
-                    + delegate.getAttribute("id"));
+                    + originalLocator);
 
     executeAction(
             ExecutionAction.CLEAR,
             () -> {
+
+                WebElement actual =
+                        resolveForAction(
+                                ExecutionAction.CLEAR);
+
+                HealingLogger.debug(
+                        "CLEAR TARGET | tag="
+                                + actual.getTagName()
+                                + " | id="
+                                + actual.getAttribute("id")
+                                + " | class="
+                                + actual.getAttribute("class"));
 
                 ElementCapability capability =
                         actionCapabilityResolver.resolve(
@@ -218,23 +258,22 @@ public void clear() {
 
                 if (capability != null
                         && capabilityValidator.supports(
-                                delegate,
+                                actual,
                                 capability)) {
 
                     HealingLogger.debug(
                             "CLEAR DIRECT | "
-                                    + "element already supports CLEAR"
-                                    + " | tag="
-                                    + delegate.getTagName());
+                                    + "tag="
+                                    + actual.getTagName());
 
-                    delegate.clear();
+                    actual.clear();
 
-                    return delegate;
+                    return actual;
                 }
 
                 WebElement target =
                         actionRecoveryEngine.recover(
-                                delegate,
+                                actual,
                                 capability);
 
                 HealingLogger.debug(
@@ -266,10 +305,15 @@ public void clear() {
         return delegate.isEnabled();
     }
 
-    @Override
-    public String getText() {
-        return delegate.getText();
-    }
+   @Override
+public String getText() {
+
+    WebElement actual =
+            resolveForAction(
+                    ExecutionAction.VERIFY);
+
+    return actual.getText();
+}
 
     @Override
     public List<WebElement> findElements(By by) {
@@ -281,10 +325,40 @@ public void clear() {
         return delegate.findElement(by);
     }
 
-    @Override
-    public boolean isDisplayed() {
-        return delegate.isDisplayed();
+@Override
+public boolean isDisplayed() {
+
+    /*
+     * ExpectedConditions.elementToBeClickable()
+     * calls isDisplayed() BEFORE click().
+     *
+     * Therefore the real user action is CLICK,
+     * even though Selenium is currently performing
+     * a visibility check.
+     *
+     * If this deferred element has not been resolved yet,
+     * preserve CLICK as the action context so that
+     * healing understands what the element is supposed
+     * to support.
+     */
+    if (delegate == null) {
+
+        ExecutionTracker.recordAction(
+                ExecutionAction.CLICK.name());
+
+        HealingLogger.debug(
+                "CLICK CONTEXT DETECTED FROM "
+                        + "elementToBeClickable | locator="
+                        + originalLocator);
+
+        delegate =
+                driver.resolveForAction(
+                        originalLocator,
+                        ExecutionAction.CLICK);
     }
+
+    return delegate.isDisplayed();
+}
 
     @Override
     public Point getLocation() {
@@ -337,6 +411,26 @@ public void clear() {
     public SearchContext getShadowRoot() {
         return delegate.getShadowRoot();
     }
+private WebElement resolveForAction(
+        ExecutionAction action) {
 
+    if (delegate != null) {
+        return delegate;
+    }
+
+    HealingLogger.debug(
+            "DEFERRED ELEMENT RESOLUTION | "
+                    + "locator="
+                    + originalLocator
+                    + " | action="
+                    + action);
+
+    delegate =
+            driver.resolveForAction(
+                    originalLocator,
+                    action);
+
+    return delegate;
+}
 
 }

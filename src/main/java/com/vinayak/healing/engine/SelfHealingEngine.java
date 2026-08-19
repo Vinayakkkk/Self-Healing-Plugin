@@ -14,10 +14,12 @@ import com.vinayak.healing.validator.CachedLocatorValidator;
 
 import com.vinayak.healing.dom.XPathFallbackGenerator;
 import com.vinayak.healing.execution.ExecutionAction;
+import com.vinayak.healing.execution.ExecutionTracker;
 import com.vinayak.healing.filter.CandidateFilter;
 import com.vinayak.healing.logging.HealingLogger;
 import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
+import com.vinayak.healing.model.TargetCardinality;
 import com.vinayak.healing.outcome.engine.ExpectedOutcomeEngine;
 import com.vinayak.healing.outcome.model.OutcomeVerificationResult;
 import com.vinayak.healing.pipeline.HealingPipeline;
@@ -30,6 +32,11 @@ import com.vinayak.healing.validator.CandidateValidator;
 import com.vinayak.healing.shadow.ShadowDomDetector;
 import com.vinayak.healing.shadow.ShadowDomHealingEngine;
 import com.vinayak.healing.iframe.IframeHealingEngine;
+import com.vinayak.healing.learning.LearningEngine;
+import com.vinayak.healing.learning.LearningKey;
+import com.vinayak.healing.learning.LearningRecord;
+import com.vinayak.healing.learning.LearningRecorder;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,9 +60,7 @@ public class SelfHealingEngine {
         private final CandidateFilter candidateFilter =
         new CandidateFilter();
 
-        private final CollectionHealingEngine
-        collectionHealingEngine =
-        new CollectionHealingEngine();
+
         private final ExpectedOutcomeEngine
         expectedOutcomeEngine =
         new ExpectedOutcomeEngine();
@@ -73,7 +78,7 @@ private final FailureContextFactory
 
         private static final boolean DEBUG = false;
 
-  
+
        private static final ThreadLocal<By>
         lastSuccessfulLocator =
                 new ThreadLocal<>();
@@ -91,7 +96,17 @@ private final FailureContextFactory
 
         private final HealingDecisionEngine healingDecisionEngine =
         new HealingDecisionEngine();
-       
+
+        private final LearningEngine learningEngine =
+        new LearningEngine();
+
+        private final LearningRecorder learningRecorder =
+        new LearningRecorder(learningEngine);
+
+        private final CollectionHealingEngine
+        collectionHealingEngine =
+        new CollectionHealingEngine(learningEngine);
+
  public static By getLastSuccessfulLocator() {
 
         return lastSuccessfulLocator.get();
@@ -100,10 +115,12 @@ private final FailureContextFactory
             WebDriver driver,
             By failedLocator)
 
-            
 
-            
+
+
             throws Exception {
+
+
 
                 long startTime = System.currentTimeMillis();
 
@@ -112,7 +129,7 @@ private final FailureContextFactory
                         + failedLocator);
 
 
-       
+
 
         // ==========================
         // WAIT FOR PAGE + DOM
@@ -123,7 +140,8 @@ private final FailureContextFactory
 FailureContext context =
         failureContextFactory.build(
                 driver,
-                failedLocator);
+                failedLocator,
+                TargetCardinality.SINGLE);
 
 String pageObjectPath =
         context.getPageObjectPath();
@@ -133,7 +151,7 @@ String variableName =
 
 
 
-             
+
 
                 String pageObjectClass =
         pageObjectPath == null
@@ -142,11 +160,10 @@ String variableName =
                         pageObjectPath.lastIndexOf('/') + 1)
                         .replace(".java", "");
 
-                        String expectedIntentName =
+               String expectedIntentName =
         context.getExpectedIntent() == null
                 ? "UNKNOWN"
-                : context.getExpectedIntent()
-                        .name();
+                : context.getExpectedIntent().name();
 
 String cacheKey =
         LocatorCache.buildKey(
@@ -154,6 +171,8 @@ String cacheKey =
                 variableName,
                 expectedIntentName,
                 failedLocator.toString());
+
+
 
 
 
@@ -205,14 +224,28 @@ if (validCachedLocator) {
                     System.currentTimeMillis()
                             - startTime);
 
-            HealingReportManager.logHealing(
+String reportAction =
+        context.getFailedAction() == null
+                ? "UNKNOWN"
+                : context.getFailedAction().name();
+
+System.out.println(
+        "[HEALING REPORT DEBUG]"
+                + " source=CACHE"
+                + " | action=" + reportAction
+                + " | variable=" + context.getVariableName()
+                + " | failed=" + failedLocator
+                + " | healed=" + cachedLocator);
+
+HealingReportManager.logHealing(
         pageObjectClass,
-        variableName,
+        context.getVariableName(),
+        reportAction,
         expectedIntentName,
         cacheKey,
         failedLocator.toString(),
         cachedLocator.toString(),
-        cached.getConfidence(),
+        0.0,
         "HIGH",
         true,
         true,
@@ -261,12 +294,61 @@ if (cached == null) {
                     + cacheKey);
 }
 
+WebElement learningElement =
+        tryLearningHit(
+                driver,
+                context,
+                pageObjectClass);
+
+if (learningElement != null) {
+
+    HealingAnalytics.addHealingTime(
+            System.currentTimeMillis()
+                    - startTime);
+
+    String reportAction =
+        context.getFailedAction() == null
+                ? "UNKNOWN"
+                : context.getFailedAction().name();
+
+By learnedLocatorForReport =
+        lastSuccessfulLocator.get();
+
+System.out.println(
+        "[HEALING REPORT DEBUG]"
+                + " source=LEARNING"
+                + " | action=" + reportAction
+                + " | variable=" + context.getVariableName()
+                + " | failed=" + failedLocator
+                + " | healed=" + learnedLocatorForReport);
+
+HealingReportManager.logHealing(
+        pageObjectClass,
+        context.getVariableName(),
+        reportAction,
+        expectedIntentName,
+        cacheKey,
+        failedLocator.toString(),
+        learnedLocatorForReport == null
+                ? "UNKNOWN"
+                : learnedLocatorForReport.toString(),
+        0.0,
+        "HIGH",
+        true,
+        true,
+        "LEARNING");
+
+    return learningElement;
+}
 
 
+HealingLogger.debug(
+        "LEARNING FALLBACK | "
+                + "continuing normal candidate healing");
 PipelineResult result =
         pipeline.execute(context);
 
-        
+
 
 List<LocatorCandidate> candidates =
         new ArrayList<>(result.getCandidates());
@@ -434,7 +516,7 @@ if (validatedCandidate == null) {
     System.out.println("Score : "
             + validatedCandidate.getFinalScore());
 }}
-             
+
 if (DEBUG) {
 System.out.println("\n===== BEFORE DECISION ENGINE =====");
 
@@ -453,6 +535,46 @@ HealingDecision healingDecision =
                 validatedCandidate,
                 candidates,
                 context);
+
+String resolvedExpectedIntentName =
+        expectedIntentName;
+
+if ("UNKNOWN".equalsIgnoreCase(resolvedExpectedIntentName)
+        && validatedCandidate != null
+        && validatedCandidate.getIntent() != null) {
+
+    resolvedExpectedIntentName =
+            validatedCandidate.getIntent().name();
+
+    HealingLogger.debug(
+            "EXPECTED INTENT RESOLVED FROM CANDIDATE"
+                    + " | initial=" + expectedIntentName
+                    + " | candidate="
+                    + validatedCandidate.getIntent()
+                    + " | resolved="
+                    + resolvedExpectedIntentName);
+}
+
+String resolvedCacheKey =
+        LocatorCache.buildKey(
+                pageObjectClass,
+                variableName,
+                resolvedExpectedIntentName,
+                failedLocator.toString());
+
+HealingLogger.debug(
+        "RESOLVED EXPECTED INTENT"
+                + " | initial=" + expectedIntentName
+                + " | resolved=" + resolvedExpectedIntentName
+                + " | candidate="
+                + (validatedCandidate == null
+                        ? "UNKNOWN"
+                        : validatedCandidate.getIntent()));
+
+HealingLogger.debug(
+        "RESOLVED CACHE KEY"
+                + " | old=" + cacheKey
+                + " | new=" + resolvedCacheKey);
 
 HealingLogger.debug(
         "\n===== HEALING DECISION =====");
@@ -515,7 +637,7 @@ HealingLogger.debug(
                 + locator);
 
 RUNTIME_HEALED_LOCATORS.put(
-        cacheKey,
+        resolvedCacheKey,
         locator);
 
         RUNTIME_HEALED_LOCATORS.put(
@@ -523,6 +645,18 @@ RUNTIME_HEALED_LOCATORS.put(
         locator);
 
     lastSuccessfulLocator.set(locator);
+
+    learningRecorder.record(
+        context,
+        pageObjectClass,
+        validatedCandidate,
+        locator,
+        healingDecision.getConfidence().name(),
+        healingDecision.isHealingAllowed(),
+        healingDecision.isCacheAllowed(),
+        "DIRECT",
+        true,
+        100.0);
 
     LocatorSuggestion suggestion =
         CandidateConverter.convert(
@@ -533,8 +667,8 @@ if (suggestion != null
         && healingDecision.isCacheAllowed()) {
 
     LocatorCache.put(
-            cacheKey,
-            suggestion);
+        resolvedCacheKey,
+        suggestion);
 
     HealingLogger.debug(
             "PERSISTENT CACHE STORED"
@@ -556,17 +690,47 @@ if (suggestion != null
 }
 
 
-  HealingReportManager.logHealing(
+  String reportAction =
+        context.getFailedAction() == null
+                ? "UNKNOWN"
+                : context.getFailedAction().name();
+
+double reportScore =
+        validatedCandidate.getFinalScore();
+
+String reportConfidence =
+        healingDecision.getConfidence().name();
+
+boolean reportHealingAllowed =
+        healingDecision.isHealingAllowed();
+
+boolean reportCacheAllowed =
+        healingDecision.isCacheAllowed();
+
+System.out.println(
+        "[HEALING REPORT DEBUG]"
+                + " source=DIRECT"
+                + " | action=" + reportAction
+                + " | variable=" + context.getVariableName()
+                + " | failed=" + failedLocator
+                + " | healed=" + locator
+                + " | score=" + reportScore
+                + " | confidence=" + reportConfidence
+                + " | healingAllowed=" + reportHealingAllowed
+                + " | cacheAllowed=" + reportCacheAllowed);
+
+HealingReportManager.logHealing(
         pageObjectClass,
-        variableName,
-        expectedIntentName,
-        cacheKey,
+        context.getVariableName(),
+        reportAction,
+        resolvedExpectedIntentName,
+        resolvedCacheKey,
         failedLocator.toString(),
         locator.toString(),
-        validatedCandidate.getFinalScore(),
-        healingDecision.getConfidence().name(),
-        healingDecision.isHealingAllowed(),
-        healingDecision.isCacheAllowed(),
+        reportScore,
+        reportConfidence,
+        reportHealingAllowed,
+        reportCacheAllowed,
         "DIRECT");
 
     HealingLogger.debug(
@@ -574,13 +738,13 @@ if (suggestion != null
 
 if (context.getPageObjectPath() != null
         && !context.getPageObjectPath().isBlank()) {
-  
+
 
     try {
 
         RepairReport report =
 
-        
+
                 sourceCodeRepairEngine.repair(
                         context,
                         suggestion);
@@ -649,7 +813,7 @@ List<LocatorCandidate> filteredCandidates =
  */
 if (filteredCandidates.isEmpty()) {
 
-    HealingAnalytics.failure();
+    HealingAnalytics.failure(pageObjectClass);
 
     HealingAnalytics.addHealingTime(
             System.currentTimeMillis() - startTime);
@@ -675,7 +839,7 @@ try {
 
 } catch (Exception e) {
 
-   
+
 
     throw e;
 }
@@ -696,7 +860,7 @@ LocatorSuggestion suggestion =
 
 if (suggestion == null) {
 
-    HealingAnalytics.failure();
+    HealingAnalytics.failure(pageObjectClass);
 
     HealingAnalytics.addHealingTime(
             System.currentTimeMillis() - startTime);
@@ -720,7 +884,7 @@ boolean valid = filteredCandidates.stream().anyMatch(c ->
 
 if (!valid) {
 
-        HealingAnalytics.failure();
+       HealingAnalytics.failure(pageObjectClass);
 
     HealingAnalytics.addHealingTime(
             System.currentTimeMillis() - startTime);
@@ -731,7 +895,7 @@ if (!valid) {
          if("tag".equalsIgnoreCase(
         suggestion.getLocatorType())) {
 
-                HealingAnalytics.failure();
+               HealingAnalytics.failure(pageObjectClass);
 
     HealingAnalytics.addHealingTime(
             System.currentTimeMillis() - startTime);
@@ -747,7 +911,7 @@ if (!valid) {
         if (suggestion.getLocatorValue() == null
                 || suggestion.getLocatorValue().isBlank()) {
 
-                        HealingAnalytics.failure();
+                       HealingAnalytics.failure(pageObjectClass);
 
     HealingAnalytics.addHealingTime(
             System.currentTimeMillis() - startTime);
@@ -761,7 +925,7 @@ if (!valid) {
                 || suggestion.getLocatorValue()
                         .equalsIgnoreCase("wrong-password")) {
 
-                                HealingAnalytics.failure();
+                                HealingAnalytics.failure(pageObjectClass);
 
     HealingAnalytics.addHealingTime(
             System.currentTimeMillis() - startTime);
@@ -793,7 +957,7 @@ LocatorCandidate validatedAiCandidate =
                 context);
 if (validatedAiCandidate == null) {
 
-       HealingAnalytics.failure();
+       HealingAnalytics.failure(pageObjectClass);
 
     HealingAnalytics.addHealingTime(
             System.currentTimeMillis() - startTime);
@@ -804,11 +968,23 @@ if (validatedAiCandidate == null) {
 
 By healedLocator =
         LocatorBuilder.build(validatedAiCandidate);
-        RUNTIME_HEALED_LOCATORS.put(
-        cacheKey,
+       RUNTIME_HEALED_LOCATORS.put(
+        resolvedCacheKey,
         healedLocator);
 
 lastSuccessfulLocator.set(healedLocator);
+
+learningRecorder.record(
+        context,
+        pageObjectClass,
+        validatedAiCandidate,
+        healedLocator,
+        "MEDIUM",
+        true,
+        true,
+        "AI",
+        true,
+        100.0);
 
 WebElement element =
         findElementWithShadowSupport(
@@ -819,18 +995,40 @@ suggestion.setConfidence(
         validatedAiCandidate.getFinalScore());
 
 LocatorCache.put(
-        cacheKey,
+        resolvedCacheKey,
         suggestion);
+
+String reportAction =
+        context.getFailedAction() == null
+                ? "UNKNOWN"
+                : context.getFailedAction().name();
+
+double reportScore =
+        validatedAiCandidate.getFinalScore();
+
+String reportConfidence =
+        "MEDIUM";
+
+System.out.println(
+        "[HEALING REPORT DEBUG]"
+                + " source=AI"
+                + " | action=" + reportAction
+                + " | variable=" + context.getVariableName()
+                + " | failed=" + failedLocator
+                + " | healed=" + healedLocator
+                + " | score=" + reportScore
+                + " | confidence=" + reportConfidence);
 
 HealingReportManager.logHealing(
         pageObjectClass,
-        variableName,
-        expectedIntentName,
-        cacheKey,
+        context.getVariableName(),
+        reportAction,
+        resolvedExpectedIntentName,
+        resolvedCacheKey,
         failedLocator.toString(),
         healedLocator.toString(),
-        suggestion.getConfidence(),
-        "MEDIUM",
+        reportScore,
+        reportConfidence,
         true,
         true,
         "AI");
@@ -881,15 +1079,319 @@ if (context.getPageObjectPath() != null
 }
 
 return element;
-        
+
     }
-    public WebElement heal(
+public WebElement heal(
         WebDriver driver,
         By failedLocator,
         ExecutionAction action)
         throws Exception {
 
-    return heal(driver, failedLocator);
+    HealingLogger.debug(
+            "ACTION-AWARE HEALING | locator="
+                    + failedLocator
+                    + " | action="
+                    + action);
+
+    /*
+     * The action has already been recorded by
+     * HealingWebElement before this method is called.
+     *
+     * Therefore the existing one-argument healing
+     * pipeline can build FailureContext with the
+     * correct failed action.
+     */
+    return heal(
+            driver,
+            failedLocator);
+}
+/**
+ * Attempts to reuse a previously successful healing experience.
+ *
+ * The learned locator is never trusted blindly.
+ * It must first pass the same semantic cached-locator
+ * validation used by the persistent locator cache.
+ */
+private WebElement tryLearningHit(
+        WebDriver driver,
+        FailureContext context,
+        String pageObjectClass) {
+
+    if (driver == null
+            || context == null) {
+
+        return null;
+    }
+
+    String expectedIntent =
+            context.getExpectedIntent() == null
+                    ? "UNKNOWN"
+                    : context.getExpectedIntent().name();
+
+    String action =
+            context.getFailedAction() == null
+                    ? "UNKNOWN"
+                    : context.getFailedAction().name();
+
+    LearningKey learningKey =
+            new LearningKey(
+                    pageObjectClass,
+                    context.getVariableName(),
+                    expectedIntent,
+                    action,
+                    context.getFailedLocator());
+
+    HealingLogger.debug(
+            "\n========== LEARNING LOOKUP ==========");
+
+    HealingLogger.debug(
+            "Learning Key : "
+                    + learningKey);
+
+    List<LearningRecord> history =
+            learningEngine.findHistory(
+                    learningKey);
+
+    if (history == null
+            || history.isEmpty()) {
+
+        HealingLogger.debug(
+                "LEARNING MISS | no history found");
+
+        HealingLogger.debug(
+                "====================================");
+
+        return null;
+    }
+
+    /*
+     * Select the strongest successful learning experience.
+     *
+     * Priority:
+     *
+     * 1. Successful outcome
+     * 2. Healing allowed
+     * 3. Cache/reuse allowed
+     * 4. Highest outcome confidence
+     * 5. Highest candidate score
+     * 6. Most recent record
+     */
+    LearningRecord bestRecord =
+            history.stream()
+                    .filter(record ->
+                            record != null
+                                    && record.isOutcomeSuccess())
+                    .filter(LearningRecord::isHealingAllowed)
+                    .filter(LearningRecord::isCacheAllowed)
+                    .max(
+                            java.util.Comparator
+                                    .comparingDouble(
+                                            LearningRecord::getOutcomeConfidence)
+                                    .thenComparingDouble(
+                                            LearningRecord::getCandidateScore)
+                                    .thenComparing(
+                                            LearningRecord::getTimestamp,
+                                            java.util.Comparator
+                                                    .nullsFirst(
+                                                            java.util.Comparator
+                                                                    .naturalOrder())))
+                    .orElse(null);
+
+    if (bestRecord == null) {
+
+        HealingLogger.debug(
+                "LEARNING MISS | no reusable successful record");
+
+        HealingLogger.debug(
+                "====================================");
+
+        return null;
+    }
+
+    HealingLogger.debug(
+            "LEARNING RECORD FOUND");
+
+    HealingLogger.debug(
+            "Selected Locator : "
+                    + bestRecord.getSelectedLocator());
+
+    HealingLogger.debug(
+            "Locator Type     : "
+                    + bestRecord.getSelectedLocatorType());
+
+    HealingLogger.debug(
+            "Locator Value    : "
+                    + bestRecord.getSelectedLocatorValue());
+
+    HealingLogger.debug(
+            "Outcome Confidence : "
+                    + bestRecord.getOutcomeConfidence());
+
+    HealingLogger.debug(
+            "Candidate Score    : "
+                    + bestRecord.getCandidateScore());
+
+    /*
+     * ==========================================
+     * BUILD LEARNED LOCATOR
+     * ==========================================
+     */
+
+    By learnedLocator;
+
+    try {
+
+        learnedLocator =
+                LocatorBuilder.build(
+                        bestRecord.getSelectedLocatorType(),
+                        bestRecord.getSelectedLocatorValue());
+
+    } catch (Exception exception) {
+
+        HealingLogger.debug(
+                "LEARNING LOCATOR BUILD FAILED | "
+                        + exception.getMessage());
+
+        return null;
+    }
+
+    if (learnedLocator == null) {
+
+        HealingLogger.debug(
+                "LEARNING LOCATOR BUILD FAILED | null locator");
+
+        return null;
+    }
+
+    /*
+     * ==========================================
+     * SAFETY CHECK
+     * ==========================================
+     */
+
+    if (isUnsafeGeneratedLocator(learnedLocator)) {
+
+        HealingLogger.debug(
+                "LEARNING LOCATOR REJECTED | unsafe locator = "
+                        + learnedLocator);
+
+        return null;
+    }
+
+    /*
+     * ==========================================
+     * CURRENT DOM VALIDATION
+     * ==========================================
+     *
+     * IMPORTANT:
+     *
+     * Learning is experience, NOT blind trust.
+     *
+     * The learned locator must still represent
+     * the correct element on the current page.
+     */
+
+    boolean valid;
+
+    try {
+
+        valid =
+                cachedLocatorValidator.validate(
+                        driver,
+                        learnedLocator,
+                        context);
+
+    } catch (Exception exception) {
+
+        HealingLogger.debug(
+                "LEARNING VALIDATION FAILED | "
+                        + exception.getMessage());
+
+        return null;
+    }
+
+    if (!valid) {
+
+        HealingLogger.debug(
+                "LEARNING STALE | learned locator failed validation");
+
+        HealingLogger.debug(
+                "Learned Locator : "
+                        + learnedLocator);
+
+        HealingLogger.debug(
+                "====================================");
+
+        return null;
+    }
+
+    /*
+     * ==========================================
+     * FINAL ELEMENT LOOKUP
+     * ==========================================
+     */
+
+    try {
+
+        WebElement element =
+                findElementWithShadowSupport(
+                        driver,
+                        learnedLocator);
+
+        if (element == null) {
+
+            HealingLogger.debug(
+                    "LEARNING HIT FAILED | element is null");
+
+            return null;
+        }
+
+        /*
+         * ==========================================
+         * LEARNING HIT
+         * ==========================================
+         */
+
+        HealingLogger.debug(
+                "\n========== LEARNING HIT ==========");
+
+        HealingLogger.debug(
+                "Failed Locator : "
+                        + context.getFailedLocator());
+
+        HealingLogger.debug(
+                "Learned Locator : "
+                        + learnedLocator);
+
+        HealingLogger.debug(
+                "Learning Source : PREVIOUS_SUCCESS");
+
+        HealingLogger.debug(
+                "Outcome Confidence : "
+                        + bestRecord.getOutcomeConfidence());
+
+        HealingLogger.debug(
+                "==================================");
+
+        lastSuccessfulLocator.set(
+                learnedLocator);
+
+        HealingAnalytics.deterministicHeal();
+
+        HealingLogger.debug(
+                "LEARNING HEAL SUCCESS : "
+                        + learnedLocator);
+
+        return element;
+
+    } catch (Exception exception) {
+
+        HealingLogger.debug(
+                "LEARNING ELEMENT LOOKUP FAILED | "
+                        + exception.getMessage());
+
+        return null;
+    }
 }
 
 private void waitForDomReady(
@@ -900,103 +1402,112 @@ private void waitForDomReady(
                     driver,
                     Duration.ofSeconds(20));
 
-    wait.until(webDriver ->
-            ((JavascriptExecutor) webDriver)
-                    .executeScript(
-                            "return document.readyState")
-                    .equals("complete"));
+    /*
+     * ==========================================
+     * PHASE 1 - DOCUMENT READY
+     * ==========================================
+     */
 
-wait.until(webDriver -> {
+    wait.until(webDriver -> {
 
-    JavascriptExecutor js =
-            (JavascriptExecutor) webDriver;
+        Object readyState =
+                ((JavascriptExecutor) webDriver)
+                        .executeScript(
+                                "return document.readyState");
 
-    Long normalElements =
-            ((Number) js.executeScript(
-                    """
-                    return document.querySelectorAll(
-                    "input,button,select,textarea,a")
-                    .length;
-                    """))
-                    .longValue();
+        return "complete".equals(readyState);
+    });
 
-    if (normalElements > 0) {
-        return true;
-    }
 
-    Long shadowElements =
-            ((Number) js.executeScript(
-                    """
-                    let count = 0;
+    /*
+     * ==========================================
+     * PHASE 2 - DOM STABILITY
+     * ==========================================
+     *
+     * document.readyState == complete does NOT
+     * mean that a SPA has finished rendering.
+     *
+     * React / Angular / Vue applications may
+     * continue modifying the DOM after the
+     * document becomes complete.
+     *
+     * We therefore wait until the DOM fingerprint
+     * remains unchanged for a short period.
+     */
 
-                    function scan(root){
+    final String[] previousFingerprint = { null };
+    final long[] stableSince = { 0L };
 
-                        root.querySelectorAll("*")
-                            .forEach(e=>{
+    wait.until(webDriver -> {
 
-                                if(e.shadowRoot){
+        JavascriptExecutor js =
+                (JavascriptExecutor) webDriver;
 
-                                    count += e.shadowRoot
-                                            .querySelectorAll(
-                                            "input,button,select,textarea,a")
-                                            .length;
+        Object fingerprintObject =
+                js.executeScript(
+                        """
+                        const root =
+                            document.documentElement;
 
-                                    scan(e.shadowRoot);
-                                }
-                            });
-                    }
+                        if (!root) {
+                            return null;
+                        }
 
-                    scan(document.documentElement);
+                        return [
+                            root.outerHTML.length,
+                            document.body
+                                ? document.body.innerText.length
+                                : 0,
+                            document.querySelectorAll("*").length
+                        ].join("|");
+                        """);
 
-                    return count;
-                    """))
-                    .longValue();
-
-    if (shadowElements > 0) {
-        return true;
-    }
-
-    // ---------- IFRAME SUPPORT ----------
-
-    try {
-
-        webDriver.switchTo().defaultContent();
-
-        List<WebElement> iframes =
-                webDriver.findElements(
-                        By.tagName("iframe"));
-
-        for (int i = 0; i < iframes.size(); i++) {
-
-            webDriver.switchTo().defaultContent();
-            webDriver.switchTo().frame(i);
-
-            Long iframeElements =
-                    ((Number) js.executeScript(
-                            """
-                            return document.querySelectorAll(
-                            "input,button,select,textarea,a")
-                            .length;
-                            """))
-                            .longValue();
-
-            if (iframeElements > 0) {
-
-                webDriver.switchTo().defaultContent();
-
-                return true;
-            }
+        if (fingerprintObject == null) {
+            return false;
         }
 
-    } catch (Exception ignored) {
+        String fingerprint =
+                fingerprintObject.toString();
 
-    } finally {
+        long now =
+                System.currentTimeMillis();
 
-        webDriver.switchTo().defaultContent();
-    }
+        /*
+         * First observation.
+         */
+        if (previousFingerprint[0] == null) {
 
-    return false;
-});
+            previousFingerprint[0] =
+                    fingerprint;
+
+            stableSince[0] =
+                    now;
+
+            return false;
+        }
+
+        /*
+         * DOM changed.
+         *
+         * Restart stability timer.
+         */
+        if (!fingerprint.equals(
+                previousFingerprint[0])) {
+
+            previousFingerprint[0] =
+                    fingerprint;
+
+            stableSince[0] =
+                    now;
+
+            return false;
+        }
+
+        /*
+         * DOM has remained unchanged.
+         */
+        return now - stableSince[0] >= 500;
+    });
 }
 
 
@@ -1035,7 +1546,7 @@ private String xpathLiteral(String value) {
 
 private RuntimeException fail(String message) {
 
-   
+
 
     return new RuntimeException(message);
 }
@@ -1193,11 +1704,15 @@ public List<WebElement> healCollection(
     if (driver == null || failedLocator == null) {
         return List.of();
     }
-
+HealingLogger.debug(
+        "BEFORE FAILURE CONTEXT | action="
+                + ExecutionTracker.getContext()
+                        .getLatestAction());
 FailureContext context =
         failureContextFactory.build(
                 driver,
-                failedLocator);
+                failedLocator,
+                TargetCardinality.COLLECTION);
 
 
 

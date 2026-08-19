@@ -1,7 +1,7 @@
 package com.vinayak.healing.report;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
+import com.vinayak.healing.execution.ExecutionAction;
 import java.io.File;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -30,6 +30,7 @@ private static final String REPORT_FILE =
     public static void logHealing(
         String pageObjectClass,
         String variableName,
+        String action,
         String expectedIntent,
         String cacheKey,
         String failedLocator,
@@ -47,6 +48,20 @@ private static final String REPORT_FILE =
                 + variableName
                 + " | "
                 + healedLocator);
+
+                System.out.println(
+        "[HEALING REPORT DEBUG]"
+                + " | page=" + pageObjectClass
+                + " | variable=" + variableName
+                + " | action=" + action
+                + " | intent=" + expectedIntent
+                + " | source=" + source
+                + " | failed=" + failedLocator
+                + " | healed=" + healedLocator
+                + " | score=" + score
+                + " | confidence=" + confidenceLevel
+                + " | healingAllowed=" + healingAllowed
+                + " | cacheAllowed=" + cacheAllowed);
 
         try {
 
@@ -84,6 +99,7 @@ private static final String REPORT_FILE =
         new HealingEvent(
                 pageObjectClass,
                 variableName,
+                action,
                 expectedIntent,
                 cacheKey,
                 failedLocator,
@@ -94,6 +110,12 @@ private static final String REPORT_FILE =
                 cacheAllowed,
                 LocalDateTime.now().toString(),
                 source);
+
+                System.out.println(
+        "[HEALING REPORT DEBUG] Event created"
+                + " | action=" + event.getAction()
+                + " | source=" + event.getSource()
+                + " | healedLocator=" + event.getHealedLocator());
 
             events.add(event);
 

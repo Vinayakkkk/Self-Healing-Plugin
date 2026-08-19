@@ -10,7 +10,7 @@ public class LocatorBuilder {
     /**
      * Builds a Selenium By from an AI LocatorSuggestion.
      */
-   public static By build(LocatorSuggestion suggestion) {
+    public static By build(LocatorSuggestion suggestion) {
 
         if (suggestion == null) {
             return null;
@@ -24,7 +24,7 @@ public class LocatorBuilder {
     /**
      * Builds a Selenium By from a deterministic LocatorCandidate.
      */
-   public static By build(LocatorCandidate candidate) {
+    public static By build(LocatorCandidate candidate) {
 
         if (candidate == null) {
             return null;
@@ -42,7 +42,9 @@ public class LocatorBuilder {
             String locatorType,
             String locatorValue) {
 
-        if (locatorType == null || locatorValue == null) {
+        if (locatorType == null
+                || locatorValue == null) {
+
             throw new IllegalArgumentException(
                     "Locator type or locator value cannot be null.");
         }
@@ -55,8 +57,6 @@ public class LocatorBuilder {
         locatorValue = locatorValue.trim();
 
         switch (locatorType) {
-
-            
 
             case "id":
                 return By.id(locatorValue);
@@ -71,57 +71,89 @@ public class LocatorBuilder {
             case "cssselector":
                 return By.cssSelector(locatorValue);
 
-                case "href":
-    return By.cssSelector(
-            "[href='" + locatorValue + "']");
+            case "href":
+                return By.cssSelector(
+                        "[href='" + escapeCssValue(locatorValue) + "']");
 
             case "class":
             case "classname":
 
-                // Multiple classes cannot be used with By.className()
+                /*
+                 * Multiple classes cannot be used directly
+                 * with By.className().
+                 */
                 if (locatorValue.contains(" ")) {
+
                     return By.cssSelector(
-                            "." + locatorValue.replaceAll("\\s+", "."));
+                            "."
+                                    + locatorValue
+                                    .replaceAll("\\s+", "."));
                 }
 
                 return By.className(locatorValue);
 
             case "placeholder":
                 return By.cssSelector(
-                        "[placeholder='" + locatorValue + "']");
+                        "[placeholder='"
+                                + escapeCssValue(locatorValue)
+                                + "']");
 
-                        case "aria-label":
-    return By.cssSelector(
-            "[aria-label='" + locatorValue + "']");
+            case "aria-label":
+                return By.cssSelector(
+                        "[aria-label='"
+                                + escapeCssValue(locatorValue)
+                                + "']");
+
+            case "role":
+                return By.cssSelector(
+                        "[role='"
+                                + escapeCssValue(locatorValue)
+                                + "']");
+
+            case "title":
+                return By.cssSelector(
+                        "[title='"
+                                + escapeCssValue(locatorValue)
+                                + "']");
 
             case "type":
                 return By.cssSelector(
-                        "[type='" + locatorValue + "']");
+                        "[type='"
+                                + escapeCssValue(locatorValue)
+                                + "']");
 
             case "data-test":
                 return By.cssSelector(
-                        "[data-test='" + locatorValue + "']");
+                        "[data-test='"
+                                + escapeCssValue(locatorValue)
+                                + "']");
 
             case "data-testid":
                 return By.cssSelector(
-                        "[data-testid='" + locatorValue + "']");
+                        "[data-testid='"
+                                + escapeCssValue(locatorValue)
+                                + "']");
 
             case "data-qa":
                 return By.cssSelector(
-                        "[data-qa='" + locatorValue + "']");
+                        "[data-qa='"
+                                + escapeCssValue(locatorValue)
+                                + "']");
 
             case "data-cy":
                 return By.cssSelector(
-                        "[data-cy='" + locatorValue + "']");
+                        "[data-cy='"
+                                + escapeCssValue(locatorValue)
+                                + "']");
 
-      case "text":
-    return By.xpath(
-            "//*[normalize-space()="
-                    + toXpathLiteral(locatorValue)
-                    + "]");
+            case "text":
+                return By.xpath(
+                        "//*[normalize-space()="
+                                + toXpathLiteral(locatorValue)
+                                + "]");
 
             case "label-input":
-    return By.xpath(locatorValue);               
+                return By.xpath(locatorValue);
 
             default:
                 throw new IllegalArgumentException(
@@ -130,44 +162,67 @@ public class LocatorBuilder {
         }
     }
 
-    private static String escapeXpath(String value) {
+    /**
+     * Escapes a value used inside a CSS single-quoted
+     * attribute selector.
+     */
+    private static String escapeCssValue(
+            String value) {
 
-    if (!value.contains("'")) {
-        return value;
-    }
-
-    return value.replace(
-            "'",
-            "\", '\"', \"");
-}
-
-private static String toXpathLiteral(String value) {
-
-    if (!value.contains("'")) {
-        return "'" + value + "'";
-    }
-
-    if (!value.contains("\"")) {
-        return "\"" + value + "\"";
-    }
-
-    StringBuilder xpath = new StringBuilder("concat(");
-
-    String[] parts = value.split("'");
-
-    for (int i = 0; i < parts.length; i++) {
-
-        if (i > 0) {
-            xpath.append(", \"'\", ");
+        if (value == null) {
+            return "";
         }
 
-        xpath.append("'")
-                .append(parts[i])
-                .append("'");
+        return value
+                .replace("\\", "\\\\")
+                .replace("'", "\\'");
     }
 
-    xpath.append(")");
+    /**
+     * Converts arbitrary text into a valid XPath literal.
+     *
+     * Handles:
+     * - normal text
+     * - text containing single quotes
+     * - text containing double quotes
+     * - text containing both
+     */
+    private static String toXpathLiteral(
+            String value) {
 
-    return xpath.toString();
-}
+        if (value == null) {
+            return "''";
+        }
+
+        if (!value.contains("'")) {
+            return "'" + value + "'";
+        }
+
+        if (!value.contains("\"")) {
+            return "\"" + value + "\"";
+        }
+
+        StringBuilder xpath =
+                new StringBuilder("concat(");
+
+        String[] parts =
+                value.split("'");
+
+        for (int i = 0;
+                i < parts.length;
+                i++) {
+
+            if (i > 0) {
+                xpath.append(", \"'\", ");
+            }
+
+            xpath.append("'")
+                    .append(parts[i])
+                    .append("'");
+        }
+
+        xpath.append(")");
+
+        return xpath.toString();
+    }
 }

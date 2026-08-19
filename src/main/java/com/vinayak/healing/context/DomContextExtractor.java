@@ -142,80 +142,113 @@ return "";
      * Previous sibling label/text
      */
 
-    private String findSiblingLabel(
-            WebElement element) {
+private String findSiblingLabel(
+        WebElement element) {
 
-        try {
+    try {
 
-            List<WebElement> siblings =
-                    element.findElements(
-                            By.xpath("../*"));
+        List<WebElement> siblings =
+                element.findElements(
+                        By.xpath("../*"));
 
-            int index =
-                    siblings.indexOf(element);
+        int index =
+                siblings.indexOf(element);
 
-            if (index <= 0)
-                return "";
-
-            for (int i = index - 1; i >= 0; i--) {
-
-                String text =
-                        normalize(
-                                siblings.get(i)
-                                        .getText());
-
-                if (!text.isBlank()) {
-                    return text;
-                }
-            }
-
-        } catch (Exception ignored) {
+        if (index <= 0) {
+            return "";
         }
 
-        return "";
+        /*
+         * Only accept an actual <label>.
+         *
+         * Do NOT treat arbitrary previous sibling
+         * text as the label of this element.
+         */
+        for (int i = index - 1; i >= 0; i--) {
+
+            WebElement sibling =
+                    siblings.get(i);
+
+            String tag =
+                    normalize(
+                            sibling.getTagName());
+
+            if (!"label".equalsIgnoreCase(tag)) {
+                continue;
+            }
+
+            String text =
+                    normalize(
+                            sibling.getText());
+
+            if (!text.isBlank()) {
+                return text;
+            }
+        }
+
+    } catch (Exception ignored) {
     }
+
+    return "";
+}
 
     /*
      * Ancestor Search
      */
 
-    private String findAncestorLabel(
-            WebElement element) {
+private String findAncestorLabel(
+        WebElement element) {
 
-        try {
+    try {
 
-            WebElement current =
-                    element;
+        WebElement current =
+                element;
 
-            for (int depth = 0;
-                 depth < MAX_ANCESTOR_DEPTH;
-                 depth++) {
+        for (int depth = 0;
+             depth < MAX_ANCESTOR_DEPTH;
+             depth++) {
 
-                current =
-                        current.findElement(
-                                By.xpath(".."));
+            current =
+                    current.findElement(
+                            By.xpath(".."));
 
-                List<WebElement> labels =
-                        current.findElements(
-                                By.tagName("label"));
+            List<WebElement> labels =
+                    current.findElements(
+                            By.xpath("./label"));
 
-                for (WebElement label : labels) {
+            /*
+             * Only use an ancestor label when this
+             * container has exactly ONE direct label.
+             *
+             * This prevents:
+             *
+             * Employee Name input
+             * Employee Id input
+             * Supervisor Name input
+             *
+             * from accidentally inheriting:
+             *
+             * Password
+             *
+             * from a larger parent container.
+             */
+            if (labels.size() == 1) {
 
-                    String text =
-                            normalize(
-                                    label.getText());
+                String text =
+                        normalize(
+                                labels.get(0).getText());
 
-                    if (!text.isBlank()) {
-                        return text;
-                    }
+                if (!text.isBlank()) {
+                    return text;
                 }
             }
-
-        } catch (Exception ignored) {
         }
 
-        return "";
+    } catch (Exception ignored) {
     }
+
+    return "";
+}
 
     /*
      * Attribute fallback

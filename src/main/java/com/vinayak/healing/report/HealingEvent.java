@@ -1,14 +1,16 @@
 package com.vinayak.healing.report;
-
+import com.vinayak.healing.execution.ExecutionAction;
 public class HealingEvent {
 
     private String pageObjectClass;
     private String variableName;
+    private String action;
     private String expectedIntent;
     private String cacheKey;
 
     private String failedLocator;
     private String healedLocator;
+
 
     /*
      * Candidate ranking score.
@@ -34,6 +36,7 @@ public class HealingEvent {
     public HealingEvent(
             String pageObjectClass,
             String variableName,
+             String action,
             String expectedIntent,
             String cacheKey,
             String failedLocator,
@@ -47,6 +50,7 @@ public class HealingEvent {
 
         this.pageObjectClass = pageObjectClass;
         this.variableName = variableName;
+        this.action = action;
         this.expectedIntent = expectedIntent;
         this.cacheKey = cacheKey;
         this.failedLocator = failedLocator;
@@ -58,7 +62,6 @@ public class HealingEvent {
         this.timestamp = timestamp;
         this.source = source;
     }
-
     public String getPageObjectClass() {
         return pageObjectClass;
     }
@@ -80,6 +83,14 @@ public class HealingEvent {
         this.variableName =
                 variableName;
     }
+
+    public String getAction() {
+    return action;
+}
+
+public void setAction(String action) {
+    this.action = action;
+}
 
     public String getExpectedIntent() {
         return expectedIntent;
@@ -197,6 +208,7 @@ public class HealingEvent {
         return "HealingEvent{"
                 + "pageObjectClass='" + pageObjectClass + '\''
                 + ", variableName='" + variableName + '\''
+                + ", action='" + action + '\''
                 + ", expectedIntent='" + expectedIntent + '\''
                 + ", cacheKey='" + cacheKey + '\''
                 + ", failedLocator='" + failedLocator + '\''

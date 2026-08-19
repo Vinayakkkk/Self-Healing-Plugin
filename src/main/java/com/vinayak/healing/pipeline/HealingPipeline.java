@@ -121,8 +121,20 @@ public class HealingPipeline {
                         failureContext,
                         executionContext);
 
+                        failureContext.setExpectedContext(
+        expectedContext);
+
 
         if (expectedContext != null) {
+
+                if (expectedContext.getExpectedLabel() != null
+        && !expectedContext
+                .getExpectedLabel()
+                .isBlank()) {
+
+    failureContext.setExpectedLabel(
+            expectedContext.getExpectedLabel());
+}
 
 
             System.out.println(
@@ -332,10 +344,10 @@ if (failureContext.getExpectedIntent() == null
         // STEP 6 - CANDIDATE RANKING
         // ======================================
 
-        candidates =
-                candidateRanker.rank(
-                        failureContext,
-                        candidates);
+        candidates = candidateRanker.rank(
+        failureContext,
+        candidates,
+        false);
 
 
         // ======================================

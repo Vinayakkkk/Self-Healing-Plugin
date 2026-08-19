@@ -137,24 +137,21 @@ public class FallbackContextResolver {
          * Placeholder and aria-label are strong
          * label-like evidence.
          */
-        if (!hasText(
-                context.getExpectedLabel())) {
+       if (!hasText(context.getLocatorTextHint())) {
 
-            String expectedLabel =
-                    resolveExpectedLabel(
-                            locatorInfo);
+    String labelHint =
+            resolveExpectedLabel(locatorInfo);
 
-            if (hasText(
-                    expectedLabel)) {
+    if (hasText(labelHint)) {
 
-                context.setExpectedLabel(
-                        expectedLabel);
+        context.setLocatorTextHint(
+                labelHint);
 
-                System.out.println(
-                        "FALLBACK EXPECTED LABEL = "
-                                + expectedLabel);
-            }
-        }
+        System.out.println(
+                "FALLBACK LOCATOR LABEL HINT = "
+                        + labelHint);
+    }
+}
 
         // ==========================================
         // 7. EXPECTED INTENT
@@ -621,13 +618,6 @@ System.out.println("==========================");
             locatorInfo.getAttributes()
                     .put("placeholder",
                             placeholder);
-
-            if (!hasText(
-                    context.getExpectedLabel())) {
-
-                context.setExpectedLabel(
-                        placeholder);
-            }
         }
 
         // -----------------------------
@@ -643,12 +633,7 @@ System.out.println("==========================");
                     .put("aria-label",
                             ariaLabel);
 
-            if (!hasText(
-                    context.getExpectedLabel())) {
 
-                context.setExpectedLabel(
-                        ariaLabel);
-            }
         }
 
         // -----------------------------
@@ -664,12 +649,6 @@ System.out.println("==========================");
                     .put("title",
                             title);
 
-            if (!hasText(
-                    context.getExpectedLabel())) {
-
-                context.setExpectedLabel(
-                        title);
-            }
         }
         // -----------------------------
 // VALUE
@@ -684,36 +663,36 @@ if (hasText(value)) {
             .put("value", value);
 
     // Do NOT use input value as expected text.
-    // It changes during execution and is not a stable identifier.
-
-    if (!hasText(context.getLocatorTextHint())) {
-        context.setLocatorTextHint(value);
-    }
-
-    if (!hasText(context.getExpectedLabel())) {
-        context.setExpectedLabel(value);
-    }
+    // It changes during execution and is not a stable identi
 }
 
         // -----------------------------
         // LABEL
         // -----------------------------
 
-       String label =
+String label =
         resolveLabel(
                 context,
                 element);
 
-        if (hasText(label)) {
+if (hasText(label)) {
 
-            context.setExpectedLabel(label);
+    locatorInfo.getAttributes()
+            .put("label", label);
 
-            if (!hasText(
-                    context.getLocatorTextHint())) {
+    /*
+     * IMPORTANT:
+     *
+     * This label belongs to the CURRENT DOM ELEMENT.
+     *
+     * It is candidate evidence.
+     * It must NOT overwrite FailureContext.expectedLabel.
+     */
 
-                context.setLocatorTextHint(label);
-            }
-        }
+    System.out.println(
+            "DOM CANDIDATE LABEL = "
+                    + label);
+}
 
         // -----------------------------
         // TEXT
@@ -780,7 +759,7 @@ if ("label".equalsIgnoreCase(parent.getTagName())) {
 
     } catch (Exception ignored) {
     }
-   
+
 
     try {
 

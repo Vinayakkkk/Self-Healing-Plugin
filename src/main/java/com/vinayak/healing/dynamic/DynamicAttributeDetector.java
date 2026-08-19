@@ -10,6 +10,11 @@ public class DynamicAttributeDetector {
     private static final Pattern NUMERIC_PREFIX =
             Pattern.compile("^\\d+[_-](.+)$");
 
+            private static final Pattern PARENTHESIZED_NUMERIC_PREFIX =
+        Pattern.compile("^\\(\\d+\\)\\s*(.+)$");
+
+
+
     private static final Pattern UUID =
             Pattern.compile(
                     "^[0-9a-fA-F]{8}-" +
@@ -156,6 +161,23 @@ public class DynamicAttributeDetector {
 
             return result;
         }
+
+        if (PARENTHESIZED_NUMERIC_PREFIX.matcher(value).matches()) {
+
+    result.setPatternType(
+            DynamicPatternType.NUMERIC_PREFIX);
+
+    result.setDynamic(true);
+
+    result.setNormalizedValue(
+            value.replaceFirst(
+                    "^\\(\\d+\\)\\s*",
+                    ""));
+
+    result.setStabilityScore(35);
+
+    return result;
+}
 
         if (NUMERIC_PREFIX.matcher(value).matches()) {
 

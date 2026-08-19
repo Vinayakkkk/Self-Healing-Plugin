@@ -3,6 +3,7 @@ package com.vinayak.healing.resolver;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.vinayak.healing.analytics.HealingAnalytics;
 import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
 
@@ -41,6 +42,8 @@ public class DuplicateResolver {
         if (duplicateCandidates.isEmpty()) {
             return null;
         }
+
+        HealingAnalytics.duplicateResolution();
 
         /*
          * Actual duplicate resolution

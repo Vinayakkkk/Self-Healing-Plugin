@@ -69,4 +69,26 @@ public class ExecutionTracker {
     public static void clear() {
         context.clear();
     }
+    public static ExecutionAction consumeLatestAction() {
+
+    ExecutionStep step =
+            context.getLatestAction();
+
+    if (step == null
+            || step.getAction() == null) {
+
+        return null;
+    }
+
+    ExecutionAction action =
+            step.getAction();
+
+    context.setLatestAction(null);
+
+    HealingLogger.debug(
+            "EXECUTION ACTION CONSUMED = "
+                    + action);
+
+    return action;
+}
 }

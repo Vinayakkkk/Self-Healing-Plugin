@@ -106,6 +106,25 @@ LocatorInfo locatorInfo =
 ElementIntent actualIntent =
         determineIntent(element);
 
+        System.out.println(
+        "PROCESS CHECK -> tag="
+        + element.tagName()
+        + " name="
+        + element.attr("name")
+        + " id="
+        + element.id()
+        + " placeholder="
+        + element.attr("placeholder")
+        + " expectedIntent="
+        + expectedIntent
+        + " actualIntent="
+        + actualIntent
+        + " process="
+        + shouldProcessElement(
+                expectedIntent,
+                actualIntent,
+                element));
+
 if (!shouldProcessElement(
         expectedIntent,
         actualIntent,
@@ -118,6 +137,20 @@ if (!shouldProcessElement(
                
             ElementFeature feature =
         extractor.extract(element);
+
+
+        String nearestLabel =
+        findClosestSemanticLabel(element);
+
+addLabelScopedInputCandidate(
+        candidates,
+        failedLocator,
+        element,
+        context,
+        variableInfo,
+        locatorInfo,
+        nearestLabel,
+        0);
 
            
 
@@ -197,6 +230,10 @@ addCandidate(
                     context,variableInfo,
         locatorInfo);
 
+        System.out.println(
+        "NAME CANDIDATE CHECK -> "
+        + element.attr("name"));
+
             addCandidate(
                     candidates,
                     failedLocator,
@@ -266,16 +303,16 @@ addCandidate(
                    
                     context, variableInfo,
         locatorInfo);
+String visibleText =
+        extractCandidateText(element);
 
-String ownText =
-        element.ownText().trim();
-        if (!ownText.isBlank()) {
+if (!visibleText.isBlank()) {
 
     addCandidate(
             candidates,
             failedLocator,
             "text",
-            ownText,
+            visibleText,
             element,
             feature,
             context,
@@ -285,21 +322,21 @@ String ownText =
     addScopedTextCandidate(
             candidates,
             element,
-            ownText,
+            visibleText,
             context,
             variableInfo);
-            
-            addScopedButtonTextCandidate(
-        candidates,
-        element,
-        ownText,
-        context);
 
-        addScopedLinkTextCandidate(
-        candidates,
-        element,
-        ownText,
-        context);
+    addScopedButtonTextCandidate(
+            candidates,
+            element,
+            visibleText,
+            context);
+
+    addScopedLinkTextCandidate(
+            candidates,
+            element,
+            visibleText,
+            context);
 }
 
 
@@ -365,18 +402,84 @@ for (LocatorCandidate c : candidates) {
         populateLocatorUniqueness(
         document,
         candidates);
-        for (int i = 0; i < candidates.size(); i++) {
+
+System.out.println(
+        "\n===== LOCATOR UNIQUENESS ANALYSIS =====");
+
+for (int i = 0; i < candidates.size(); i++) {
+
+    LocatorCandidate candidate =
+            candidates.get(i);
+
+    System.out.println(
+            "LOCATOR CHECK -> "
+                    + candidate.getLocatorType()
+                    + "="
+                    + candidate.getLocatorValue()
+                    + " | occurrences="
+                    + candidate.getOccurrenceCount()
+                    + " | unique="
+                    + candidate.isUniqueLocator());
+
+    /*
+     * Unique locator:
+     * No refinement is required.
+     */
+    if (candidate.isUniqueLocator()) {
+
+        System.out.println(
+                "UNIQUE LOCATOR -> SKIP REFINEMENT | "
+                        + candidate.getLocatorType()
+                        + "="
+                        + candidate.getLocatorValue());
+
+        continue;
+    }
+
+    /*
+     * Duplicate locator:
+     * Try to generate a more specific locator.
+     */
+    System.out.println(
+            "DUPLICATE LOCATOR -> REFINING | "
+                    + candidate.getLocatorType()
+                    + "="
+                    + candidate.getLocatorValue()
+                    + " | occurrences="
+                    + candidate.getOccurrenceCount());
 
     LocatorCandidate updated =
             uniqueLocatorGenerator.generate(
                     document,
-                    candidates.get(i));
+                    candidate);
 
     if (updated != null) {
+
+        System.out.println(
+                "REFINED LOCATOR -> "
+                        + updated.getLocatorType()
+                        + "="
+                        + updated.getLocatorValue());
+
         candidates.set(i, updated);
+
+    } else {
+
+        System.out.println(
+                "REFINEMENT FAILED -> Keeping original locator | "
+                        + candidate.getLocatorType()
+                        + "="
+                        + candidate.getLocatorValue());
     }
 }
-populateLocatorUniqueness(document, candidates);
+
+/*
+ * Recalculate uniqueness because some
+ * duplicate candidates may have been refined.
+ */
+populateLocatorUniqueness(
+        document,
+        candidates);
 
 candidates = removeDuplicateCandidates(candidates);
 
@@ -548,6 +651,8 @@ DynamicAttributeResult dynamicResult =
         dynamicAttributeDetector.analyze(
                 locatorType,
                 locatorValue);
+
+
 
 candidate.setDynamicAttribute(
         dynamicResult.isDynamic());
@@ -782,7 +887,55 @@ if(locatorValue.equalsIgnoreCase(
     finalScore -= 50;
 }
 
+if (locatorType.equalsIgnoreCase("text")
+        && dynamicResult.isDynamic()) {
 
+    String dynamicXpath =
+            buildDynamicTextXpath(
+                    element,
+                    dynamicResult);
+
+    if (dynamicXpath != null
+            && !dynamicXpath.isBlank()
+            && !exists(
+                    candidates,
+                    "xpath",
+                    dynamicXpath,
+                    element)) {
+
+        LocatorCandidate dynamicCandidate =
+                new LocatorCandidate(
+                        "xpath",
+                        dynamicXpath,
+                        element.tagName(),
+                        element.attr("type"),
+                        determineIntent(element),
+                        score,
+                        parentTag,
+                        parentClass,
+                        parentId);
+
+        dynamicCandidate.setGeneratedLocator(true);
+        dynamicCandidate.setDynamicAttribute(true);
+
+        dynamicCandidate.setDynamicPatternType(
+                dynamicResult.getPatternType());
+
+        dynamicCandidate.setNormalizedLocatorValue(
+                dynamicResult.getNormalizedValue());
+
+        dynamicCandidate.setStabilityScore(
+                dynamicResult.getStabilityScore());
+
+        dynamicCandidate.setElementText(
+                element.text().trim());
+
+        dynamicCandidate.setFinalScore(
+                finalScore + 100);
+
+        candidates.add(dynamicCandidate);
+    }
+}
 
 candidate.setFinalScore(
         finalScore);
@@ -1040,6 +1193,14 @@ private void addScopedTextCandidate(
 
     String normalizedText =
             text.trim();
+
+            System.out.println(
+        "TEXT CANDIDATE CHECK -> tag="
+        + element.tagName()
+        + " | text="
+        + normalizedText
+        + " | intent="
+        + determineIntent(element));
 
     /*
      * Avoid extremely large text blocks.
@@ -1328,6 +1489,9 @@ private void addScopedTextCandidate(
     scopedCandidate.setFinalScore(
             score);
 
+            scopedCandidate.setElementText(
+        normalizedText);
+
     candidates.add(
             scopedCandidate);
 
@@ -1533,20 +1697,13 @@ if (context.getExpectedIntent()
 
 
 }
-
-
 private String findClosestSemanticLabel(Element element) {
 
     if (element == null) {
         return "";
     }
 
-    /*
-     * 1. Explicit HTML association:
-     *
-     * <label for="username">Username</label>
-     * <input id="username">
-     */
+    // 1. Explicit label[for=id]
     String id = element.id();
 
     if (id != null && !id.isBlank()) {
@@ -1554,7 +1711,9 @@ private String findClosestSemanticLabel(Element element) {
         Element linkedLabel =
                 element.ownerDocument()
                         .selectFirst(
-                                "label[for='" + id + "']");
+                                "label[for='"
+                                        + id
+                                        + "']");
 
         if (linkedLabel != null
                 && !linkedLabel.text().isBlank()) {
@@ -1563,69 +1722,40 @@ private String findClosestSemanticLabel(Element element) {
         }
     }
 
-    /*
-     * 2. Element wrapped directly by a label:
-     *
-     * <label>
-     *     Username
-     *     <input>
-     * </label>
-     */
+    // 2. Input wrapped by label
     Element wrappedLabel =
             element.closest("label");
 
     if (wrappedLabel != null
-            && wrappedLabel.tagName()
-                    .equalsIgnoreCase("label")) {
+            && !wrappedLabel.text().isBlank()) {
 
-        String text =
-                wrappedLabel.text().trim();
+        return wrappedLabel.text().trim();
+    }
 
-        if (!text.isBlank()) {
-            return text;
+    // 3. Immediate previous sibling
+    Element previous =
+            element.previousElementSibling();
+
+    if (previous != null) {
+
+        if (previous.tagName()
+                .equalsIgnoreCase("label")
+                && !previous.text().isBlank()) {
+
+            return previous.text().trim();
+        }
+
+        Element nestedLabel =
+                previous.selectFirst("label");
+
+        if (nestedLabel != null
+                && !nestedLabel.text().isBlank()) {
+
+            return nestedLabel.text().trim();
         }
     }
 
-    /*
-     * 3. Immediate previous sibling.
-     *
-     * Example:
-     *
-     * <label>Username</label>
-     * <input>
-     *
-     * Do NOT search arbitrary descendants.
-     */
-    Element parent = element.parent();
-
-    if (parent != null) {
-
-        Element previous =
-                element.previousElementSibling();
-
-        if (previous != null) {
-
-            if (previous.tagName()
-                    .equalsIgnoreCase("label")
-                    && !previous.text().isBlank()) {
-
-                return previous.text().trim();
-            }
-
-            Element nestedLabel =
-                    previous.selectFirst("label");
-
-            if (nestedLabel != null
-                    && !nestedLabel.text().isBlank()) {
-
-                return nestedLabel.text().trim();
-            }
-        }
-    }
-
-    /*
-     * 4. Fieldset / legend relationship.
-     */
+    // 4. Fieldset / legend
     Element fieldset =
             element.closest("fieldset");
 
@@ -1641,24 +1771,138 @@ private String findClosestSemanticLabel(Element element) {
         }
     }
 
-    /*
-     * 5. Do NOT search arbitrary labels in ancestors.
-     *
-     * That can associate unrelated labels with this element.
-     *
-     * Example:
-     *
-     * <label>Accepted usernames are:</label>
-     * ...
-     * <input id="login-button">
-     *
-     * The input must NOT receive
-     * "Accepted usernames are:" as its label.
-     */
+    // 5. Controlled nearby-container relationship
+    Element current =
+            element.parent();
+
+    for (int depth = 0;
+         depth < 4 && current != null;
+         depth++) {
+
+        Element previousContainer =
+                current.previousElementSibling();
+
+        if (previousContainer != null) {
+
+            Element label =
+                    previousContainer
+                            .tagName()
+                            .equalsIgnoreCase("label")
+                            ? previousContainer
+                            : previousContainer
+                                    .selectFirst("label");
+
+            if (label != null
+                    && !label.text().isBlank()) {
+
+                return label.text().trim();
+            }
+        }
+
+        current = current.parent();
+    }
 
     return "";
 }
+private String extractCandidateText(Element element) {
 
+    if (element == null) {
+        return "";
+    }
+
+    /*
+     * ==========================================================
+     * 1. Prefer direct text owned by the element
+     * ==========================================================
+     *
+     * Example:
+     *
+     * <span>
+     *     <span>(29)</span>
+     *     Records Found
+     * </span>
+     *
+     * element.ownText() =>
+     * "Records Found"
+     *
+     * This is preferred because nested values such as counts,
+     * indexes, badges and dynamic numbers should not become part
+     * of the semantic text identity.
+     */
+    String ownText =
+            normalizeVisibleText(
+                    element.ownText());
+
+    if (!ownText.isBlank()
+            && ownText.length() <= 80) {
+
+        return ownText;
+    }
+
+    /*
+     * ==========================================================
+     * 2. Complete text fallback
+     * ==========================================================
+     *
+     * Used when the element itself owns no direct text.
+     */
+    String fullText =
+            normalizeVisibleText(
+                    element.text());
+
+    if (!fullText.isBlank()
+            && fullText.length() <= 80) {
+
+        String tag =
+                element.tagName()
+                        .toLowerCase();
+
+        /*
+         * Normal text-bearing elements.
+         */
+        if (isTextBearingTag(tag)) {
+            return fullText;
+        }
+
+        /*
+         * Small containers can represent one meaningful
+         * textual UI block.
+         */
+        if (element.childrenSize() <= 3) {
+            return fullText;
+        }
+    }
+
+    /*
+     * ==========================================================
+     * 3. Descendant fallback
+     * ==========================================================
+     *
+     * If this element itself has no usable text, inspect
+     * descendants for a meaningful TEXT element.
+     */
+    for (Element descendant :
+            element.select("*")) {
+
+        String descendantOwnText =
+                normalizeVisibleText(
+                        descendant.ownText());
+
+        if (descendantOwnText.isBlank()
+                || descendantOwnText.length() > 80) {
+            continue;
+        }
+
+        ElementIntent intent =
+                determineIntent(descendant);
+
+        if (intent == ElementIntent.TEXT) {
+            return descendantOwnText;
+        }
+    }
+
+    return "";
+}
 private ElementIntent determineIntent(
         Element element) {
 
@@ -2180,7 +2424,20 @@ private boolean shouldProcessElement(
 
         case TEXT:
 
-            return actual == ElementIntent.TEXT;
+            /*
+             * TEXT healing is different from INPUT/BUTTON.
+             *
+             * A textual value may live inside a container:
+             *
+             * <div>
+             *     <span>Records Found</span>
+             * </div>
+             *
+             * Therefore do not reject containers before
+             * text extraction.
+             */
+            return actual == ElementIntent.TEXT
+                    || actual == ElementIntent.CONTAINER;
 
         default:
 
@@ -2217,18 +2474,47 @@ private void addCollectionCandidates(
         Elements elements,
         FailureContext context) {
 
+    /*
+     * Collection candidates are useful mainly for
+     * collection/list/table structures.
+     *
+     * Do not generate them for INPUT/BUTTON/LINK/DROPDOWN
+     * healing because broad containers such as #app > div
+     * are not valid action targets.
+     */
+    if (context == null
+            || context.getExpectedIntent() == null
+            || context.getExpectedIntent()
+                    == ElementIntent.UNKNOWN) {
+
+        return;
+    }
+
+    if (context.getExpectedIntent()
+            != ElementIntent.TEXT) {
+
+        return;
+    }
+
     for (Element element : elements) {
 
-        Elements children = element.children();
+        Elements children =
+                element.children();
 
         if (children.size() < 2) {
             continue;
         }
 
-        String firstTag = children.first().tagName();
+        String firstTag =
+                children.first()
+                        .tagName();
 
-        boolean sameTag = children.stream()
-                .allMatch(e -> e.tagName().equals(firstTag));
+        boolean sameTag =
+                children.stream()
+                        .allMatch(e ->
+                                e.tagName()
+                                        .equalsIgnoreCase(
+                                                firstTag));
 
         if (!sameTag) {
             continue;
@@ -2238,54 +2524,65 @@ private void addCollectionCandidates(
             continue;
         }
 
+        /*
+         * Avoid page/root containers such as #app.
+         */
+        String id =
+                element.id()
+                        .trim();
+
+        if (id.equalsIgnoreCase("app")
+                || id.equalsIgnoreCase("root")
+                || id.equalsIgnoreCase("body")
+                || id.equalsIgnoreCase("main")) {
+
+            continue;
+        }
+
         LocatorCandidate candidate =
-        new LocatorCandidate(
-                "css",
-                "#" + element.id() + " > " + firstTag,
-                firstTag,
-                "",
-                ElementIntent.TEXT,
-                600,
-                element.tagName(),
-                element.className(),
-                element.id());
+                new LocatorCandidate(
+                        "css",
+                        "#" + id + " > " + firstTag,
+                        firstTag,
+                        "",
+                        ElementIntent.TEXT,
+                        600,
+                        element.tagName(),
+                        element.className(),
+                        id);
 
-candidate.setFinalScore(600);
+        candidate.setFinalScore(600);
 
-/*
- * Populate semantic context
- */
-String nearestLabel =
-        findClosestSemanticLabel(element);
+        String nearestLabel =
+                findClosestSemanticLabel(
+                        element);
 
-candidate.setNearestLabel(
-        nearestLabel);
+        candidate.setNearestLabel(
+                nearestLabel);
 
-candidate.setElementText(
-        element.text().trim());
+        candidate.setElementText(
+                element.text().trim());
 
-candidate.setPlaceholder(
-        element.attr("placeholder"));
+        candidate.setPlaceholder(
+                element.attr("placeholder"));
 
-candidate.setAriaLabel(
-        element.attr("aria-label"));
+        candidate.setAriaLabel(
+                element.attr("aria-label"));
 
-candidate.setId(
-        element.id());
+        candidate.setId(id);
 
-candidate.setName(
-        element.attr("name"));
+        candidate.setName(
+                element.attr("name"));
 
-candidate.setParentTag(
-        element.tagName());
+        candidate.setParentTag(
+                element.tagName());
 
-candidate.setParentClass(
-        element.className());
+        candidate.setParentClass(
+                element.className());
 
-candidate.setParentId(
-        element.id());
+        candidate.setParentId(id);
 
-candidates.add(candidate);
+        candidates.add(candidate);
     }
 }
 private String findNearestHeading(Element element) {
@@ -2308,5 +2605,97 @@ private String findNearestHeading(Element element) {
     }
 
     return "";
+}
+
+private String normalizeVisibleText(String value) {
+
+    if (value == null) {
+        return "";
+    }
+
+    return value
+            .replace('\u00A0', ' ')
+            .replace('\n', ' ')
+            .replace('\r', ' ')
+            .replace('\t', ' ')
+            .replaceAll("\\s+", " ")
+            .trim();
+}
+private String buildDynamicTextXpath(
+        Element element,
+        DynamicAttributeResult dynamicResult) {
+
+    if (element == null
+            || dynamicResult == null
+            || !dynamicResult.isDynamic()) {
+
+        return "";
+    }
+
+    String normalizedText =
+            dynamicResult.getNormalizedValue();
+
+    if (normalizedText == null
+            || normalizedText.isBlank()) {
+
+        return "";
+    }
+
+    String tag =
+            element.tagName()
+                    .toLowerCase();
+
+    String safeText =
+            xpathLiteral(normalizedText);
+
+    switch (dynamicResult.getPatternType()) {
+
+        case NUMERIC_PREFIX:
+
+            return "//"
+                    + tag
+                    + "[contains(normalize-space(), "
+                    + safeText
+                    + ")]";
+
+        case NUMERIC_SUFFIX:
+
+            return "//"
+                    + tag
+                    + "[contains(normalize-space(), "
+                    + safeText
+                    + ")]";
+
+        default:
+
+            return "";
+    }
+}
+private boolean isTextBearingTag(String tag) {
+
+    if (tag == null) {
+        return false;
+    }
+
+    switch (tag.toLowerCase()) {
+
+        case "span":
+        case "label":
+        case "p":
+        case "td":
+        case "th":
+        case "li":
+        case "option":
+        case "h1":
+        case "h2":
+        case "h3":
+        case "h4":
+        case "h5":
+        case "h6":
+            return true;
+
+        default:
+            return false;
+    }
 }
 }

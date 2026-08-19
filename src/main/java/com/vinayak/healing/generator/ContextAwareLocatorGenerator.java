@@ -135,54 +135,79 @@ private void generateLabelXpath(
         LocatorCandidate candidate,
         List<LocatorCandidate> generated) {
 
-    if (context == null
-            || candidate == null) {
+    if (candidate == null) {
         return;
     }
 
     /*
-     * TEXT elements are identified by their own text.
-     * Do not generate label-based locators using
-     * execution-context labels such as "Username".
+     * Label XPath is only valid for real form controls.
      */
-/*
- * Label-based XPath generation is only valid
- * for form controls associated with a label.
- *
- * Never generate a label-based locator for:
- * button
- * a
- * span
- * div
- * text
- */
-String tagName =
-        candidate.getTagName();
+    String tagName =
+            candidate.getTagName();
 
-if (!hasText(tagName)) {
-    return;
-}
+    if (!hasText(tagName)) {
+        return;
+    }
 
-tagName = tagName.trim().toLowerCase();
+    tagName =
+            tagName.trim()
+                    .toLowerCase();
 
-if (!tagName.equals("input")
-        && !tagName.equals("textarea")
-        && !tagName.equals("select")) {
+    if (!tagName.equals("input")
+            && !tagName.equals("textarea")
+            && !tagName.equals("select")) {
 
-    return;
-}
+        return;
+    }
 
-if (!hasText(context.getNearestLabel())) {
-    return;
-}
+    /*
+     * IMPORTANT:
+     *
+     * Use the label belonging to THIS candidate.
+     *
+     * Do NOT use context.getNearestLabel().
+     *
+     * Example:
+     *
+     * employeeNameInput -> Employee Name
+     * employeeIdInput   -> Employee Id
+     * supervisorInput   -> Supervisor Name
+     */
+    String candidateLabel =
+            candidate.getNearestLabel();
+
+    if (!hasText(candidateLabel)) {
+        return;
+    }
+
+    /*
+     * If execution context contains a known label,
+     * don't generate a locator from a different label.
+     *
+     * This prevents:
+     *
+     * Employee Name candidate
+     *       ->
+     * Password XPath
+     */
+    if (context != null
+            && hasText(context.getNearestLabel())
+            && !candidateLabel.trim()
+                    .equalsIgnoreCase(
+                            context.getNearestLabel().trim())) {
+
+        return;
+    }
 
     String xpath =
-            "//label[normalize-space()='"
-                    + escapeXpath(
-                            context.getNearestLabel())
-                    + "']/following::*[self::"
+            "//label[normalize-space()="
+                    + xpathLiteral(candidateLabel.trim())
+                    + "]"
+                    + "/ancestor::*[count(.//"
                     + tagName
-                    + "][1]";
+                    + ")=1][1]"
+                    + "//"
+                    + tagName;
 
     LocatorCandidate generatedCandidate =
             new LocatorCandidate(
@@ -203,7 +228,8 @@ if (!hasText(context.getNearestLabel())) {
 
     generatedCandidate.setGenerationConfidence(92);
 
-    generated.add(generatedCandidate);
+    generated.add(
+            generatedCandidate);
 }
     /*
      * -------------------------------------------------------
@@ -429,5 +455,41 @@ target.setStabilityScore(
         return value != null
                 && !value.isBlank();
     }
+
+    private String xpathLiteral(String value) {
+
+    if (value == null) {
+        return "''";
+    }
+
+    if (!value.contains("'")) {
+        return "'" + value + "'";
+    }
+
+    if (!value.contains("\"")) {
+        return "\"" + value + "\"";
+    }
+
+    String[] parts =
+            value.split("'");
+
+    StringBuilder xpath =
+            new StringBuilder("concat(");
+
+    for (int i = 0; i < parts.length; i++) {
+
+        if (i > 0) {
+            xpath.append(", \"'\", ");
+        }
+
+        xpath.append("'")
+                .append(parts[i])
+                .append("'");
+    }
+
+    xpath.append(")");
+
+    return xpath.toString();
+}
 
 }

@@ -16,6 +16,8 @@ private ExecutionContext executionContext;
     private String pageSource;
     private ExecutionAction failedAction;
     private ElementIntent expectedIntent;
+    private TargetCardinality targetCardinality =
+        TargetCardinality.UNKNOWN;
     private String variableName;
     private String expectedTag;
     private ExpectedContext expectedContext;
@@ -271,6 +273,18 @@ public void setLocatorDeclaration(
     public ElementIntent getExpectedIntent() {
         return expectedIntent;
     }
+    public TargetCardinality getTargetCardinality() {
+    return targetCardinality;
+}
+
+public void setTargetCardinality(
+        TargetCardinality targetCardinality) {
+
+    this.targetCardinality =
+            targetCardinality == null
+                    ? TargetCardinality.UNKNOWN
+                    : targetCardinality;
+}
 
     public void setExpectedIntent(ElementIntent expectedIntent) {
         this.expectedIntent = expectedIntent;

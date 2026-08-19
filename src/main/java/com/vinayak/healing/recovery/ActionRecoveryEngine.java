@@ -38,8 +38,8 @@ ExecutionStep latestAction =
         ExecutionTracker.getContext()
                 .getLatestAction();
 
-        WebElement bestElement = currentElement;
-        int bestScore = Integer.MIN_VALUE;
+       WebElement bestElement = null;
+int bestScore = Integer.MIN_VALUE;
 
         for (WebElement element : elements) {
 
@@ -69,7 +69,7 @@ ExecutionStep latestAction =
             }
         }
 
-        if (bestElement != currentElement) {
+        if (bestElement != null) {
 
             System.out.println(
                     "ACTION RECOVERY FOUND : "
@@ -82,10 +82,12 @@ ExecutionStep latestAction =
             return bestElement;
         }
 
-        System.out.println(
-                "ACTION RECOVERY : No matching element found.");
+      System.out.println(
+        "ACTION RECOVERY : No matching element found.");
 
-        return currentElement;
+throw new IllegalStateException(
+        "No valid element found for action capability: "
+                + capability);
     }
 
 private int calculateScore(
@@ -93,6 +95,24 @@ private int calculateScore(
         ExecutionStep expected,
         ExecutionStep latestAction,
         ElementCapability capability) {
+
+            if (capability == ElementCapability.TYPE) {
+
+    String tag =
+            element.getTagName();
+
+    if (tag == null) {
+        return Integer.MIN_VALUE;
+    }
+
+    tag = tag.trim().toLowerCase();
+
+    if (!tag.equals("input")
+            && !tag.equals("textarea")) {
+
+        return Integer.MIN_VALUE;
+    }
+}
 
     if (expected == null) {
         return 0;

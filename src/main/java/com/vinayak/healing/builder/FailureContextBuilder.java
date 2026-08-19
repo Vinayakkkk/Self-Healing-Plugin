@@ -11,6 +11,7 @@ import com.vinayak.healing.expected.ExpectedContextManager;
 import com.vinayak.healing.intent.ElementIntent;
 import com.vinayak.healing.logging.HealingLogger;
 import com.vinayak.healing.model.FailureContext;
+import com.vinayak.healing.model.TargetCardinality;
 import com.vinayak.healing.outcome.model.ExpectedElement;
 import com.vinayak.healing.outcome.model.ExpectedOutcomeAction;
 
@@ -88,6 +89,16 @@ context.setExpectedText(expectedText);
 context.setLocatorTextHint(
         extractExpectedText(locatorDeclaration));
 
+      String locatorLabel =
+        extractExpectedLabel(locatorDeclaration);
+
+if (locatorLabel != null
+        && !locatorLabel.isBlank()) {
+
+    context.setLocatorTextHint(
+            locatorLabel);
+}
+
 HealingLogger.debug(
         "LOCATOR TEXT HINT = "
                 + context.getLocatorTextHint());
@@ -149,22 +160,29 @@ ExecutionContext executionContext =
 context.setExecutionContext(
         executionContext);
 
-
 /*
- * Resolve the action that caused the failure
- * BEFORE expected-context resolution and
- * candidate filtering.
+ * Consume the action that caused this failure.
+ *
+ * This gives the healing pipeline the failed action
+ * while preventing that action from leaking into
+ * a later unrelated failure.
  */
-if (executionContext != null
-        && executionContext.getLatestAction() != null
-        && executionContext
-                .getLatestAction()
-                .getAction() != null) {
+ExecutionAction failedAction = null;
+
+if (ExecutionTracker.getContext()
+        .getLatestAction() != null) {
+
+    failedAction =
+            ExecutionTracker.getContext()
+                    .getLatestAction()
+                    .getAction();
+}
+
+if (failedAction != null
+        && failedAction != ExecutionAction.UNKNOWN) {
 
     context.setFailedAction(
-            executionContext
-                    .getLatestAction()
-                    .getAction());
+            failedAction);
 
     HealingLogger.debug(
             "FAILED ACTION = "
@@ -177,6 +195,11 @@ context.setExpectedIntent(
                 context.getExpectedTag(),
                 context.getExpectedText(),
                 context.getFailedAction()));
+
+                context.setTargetCardinality(
+        inferTargetCardinality(
+                locatorDeclaration,
+                executionContext));
 
 HealingLogger.debug(
         "VARIABLE = "
@@ -363,30 +386,45 @@ private ElementIntent extractExpectedIntent(
                     ? ""
                     : declaration.toLowerCase();
 
-                     if (expectedText != null
-            && !expectedText.isBlank()) {
+    /*
+     * =====================================================
+     * 1. ACTION HAS HIGHEST PRIORITY
+     * =====================================================
+     *
+     * The action tells us what the test was actually
+     * trying to do.
+     *
+     * SEND_KEYS / CLEAR -> INPUT
+     *
+     * Exception text must NOT override this.
+     */
 
-        return ElementIntent.TEXT;
+    if (failedAction != null) {
+
+        switch (failedAction) {
+
+            case SEND_KEYS:
+            case CLEAR:
+                return ElementIntent.INPUT;
+
+            case CHECKBOX:
+                return ElementIntent.CHECKBOX;
+
+            case RADIO:
+                return ElementIntent.RADIO;
+
+            case SELECT:
+                return ElementIntent.DROPDOWN;
+
+            default:
+                break;
+        }
     }
 
     /*
      * =====================================================
-     * 1. SEMANTIC INTENT FROM VARIABLE NAME
+     * 2. VARIABLE NAME SEMANTICS
      * =====================================================
-     *
-     * ElementIntent itself is the vocabulary.
-     *
-     * No hardcoded list such as:
-     * login, save, delete, logout, etc.
-     *
-     * Examples:
-     *
-     * loginButton       -> BUTTON
-     * searchField       -> UNKNOWN
-     * rememberCheckbox  -> CHECKBOX
-     * genderRadio       -> RADIO
-     * countryDropdown   -> DROPDOWN
-     * productTable      -> TABLE
      */
 
     ElementIntent variableIntent =
@@ -398,47 +436,75 @@ private ElementIntent extractExpectedIntent(
 
     /*
      * =====================================================
-     * 2. LOCATOR SEMANTICS
+     * 3. LOCATOR SEMANTICS
      * =====================================================
-     *
-     * Only use locator structure when it explicitly
-     * expresses semantic intent.
-     *
-     * The tag from the FAILED locator is deliberately
-     * NOT treated as strong expected intent.
      */
 
     if (containsExplicitLocatorIntent(locator)) {
-        return inferIntentFromLocator(locator);
+
+        ElementIntent locatorIntent =
+                inferIntentFromLocator(locator);
+
+        if (locatorIntent != ElementIntent.UNKNOWN) {
+            return locatorIntent;
+        }
     }
 
     /*
      * =====================================================
-     * 3. No reliable semantic evidence
+     * 4. EXPECTED TAG
      * =====================================================
      */
 
-    if (failedAction != null) {
+    if (expectedTag != null
+            && !expectedTag.isBlank()) {
 
-    switch (failedAction) {
+        String tag =
+                expectedTag
+                        .trim()
+                        .toLowerCase();
 
-        case SEND_KEYS:
-        case CLEAR:
-            return ElementIntent.INPUT;
+        switch (tag) {
 
-        case CHECKBOX:
-            return ElementIntent.CHECKBOX;
+            case "input":
+            case "textarea":
+                return ElementIntent.INPUT;
 
-        case RADIO:
-            return ElementIntent.RADIO;
+            case "button":
+                return ElementIntent.BUTTON;
 
-        case SELECT:
-            return ElementIntent.DROPDOWN;
+            case "select":
+                return ElementIntent.DROPDOWN;
 
-        default:
-            break;
+            case "a":
+                return ElementIntent.LINK;
+
+            default:
+                break;
+        }
     }
-}
+
+    /*
+     * =====================================================
+     * 5. EXPECTED TEXT
+     * =====================================================
+     *
+     * Text is only a fallback.
+     *
+     * It must NEVER override SEND_KEYS.
+     */
+
+    if (expectedText != null
+            && !expectedText.isBlank()) {
+
+        return ElementIntent.TEXT;
+    }
+
+    /*
+     * =====================================================
+     * 6. UNKNOWN
+     * =====================================================
+     */
 
     return ElementIntent.UNKNOWN;
 }
@@ -543,7 +609,70 @@ private String extractExpectedText(
 
     return "";
 }
+private String extractExpectedLabel(
+        String locatorDeclaration) {
 
+    if (locatorDeclaration == null
+            || locatorDeclaration.isBlank()) {
+
+        return "";
+    }
+
+    /*
+     * Extract label text from generic XPath structures.
+     *
+     * Examples:
+     *
+     * //label[text()='Username']/...
+     * //label[normalize-space()='Employee Name']/...
+     * //label[contains(text(),'Email')]/...
+     * //label[contains(normalize-space(),'Phone')]/...
+     *
+     * Nothing here is application-specific.
+     */
+
+    Pattern pattern =
+            Pattern.compile(
+                    "//label\\s*\\[\\s*"
+                    + "(?:text\\(\\)|normalize-space\\(\\))"
+                    + "\\s*=\\s*['\"]([^'\"]+)['\"]"
+                    + "\\s*\\]"
+                    + "|"
+                    + "//label\\s*\\[\\s*"
+                    + "contains\\s*\\(\\s*"
+                    + "(?:text\\(\\)|normalize-space\\(\\))"
+                    + "\\s*,\\s*['\"]([^'\"]+)['\"]"
+                    + "\\s*\\)"
+                    + "\\s*\\]",
+                    Pattern.CASE_INSENSITIVE);
+
+    Matcher matcher =
+            pattern.matcher(locatorDeclaration);
+
+    if (!matcher.find()) {
+        return "";
+    }
+
+    String exactLabel =
+            matcher.group(1);
+
+    if (exactLabel != null
+            && !exactLabel.isBlank()) {
+
+        return exactLabel.trim();
+    }
+
+    String containsLabel =
+            matcher.group(2);
+
+    if (containsLabel != null
+            && !containsLabel.isBlank()) {
+
+        return containsLabel.trim();
+    }
+
+    return "";
+}
 private String extractExpectedTextFromException(
         Throwable exception) {
 
@@ -826,60 +955,115 @@ private ElementIntent intentFromToken(
 private boolean containsExplicitLocatorIntent(
         String locator) {
 
-    if (locator == null
-            || locator.isBlank()) {
-
+    if (locator == null || locator.isBlank()) {
         return false;
     }
 
-    return locator.contains("//button")
-            || locator.contains("/button")
-            || locator.contains("//select")
-            || locator.contains("/select")
-            || locator.contains("//a")
-            || locator.contains("/a[")
-            || locator.contains("@type='checkbox'")
-            || locator.contains("@type=\"checkbox\"")
-            || locator.contains("@type='radio'")
-            || locator.contains("@type=\"radio\"")
-            || locator.contains("@type='submit'")
-            || locator.contains("@type=\"submit\"");
+    String normalized =
+            locator.toLowerCase().trim();
+
+    return normalized.contains("//button")
+            || normalized.contains("/button")
+            || normalized.contains("//input")
+            || normalized.contains("/input")
+            || normalized.contains("//textarea")
+            || normalized.contains("/textarea")
+            || normalized.contains("//select")
+            || normalized.contains("/select")
+            || normalized.contains("//a")
+            || normalized.contains("/a[")
+            || normalized.contains("@type='checkbox'")
+            || normalized.contains("@type=\"checkbox\"")
+            || normalized.contains("@type='radio'")
+            || normalized.contains("@type=\"radio\"")
+            || normalized.contains("@type='submit'")
+            || normalized.contains("@type=\"submit\"");
 }
 private ElementIntent inferIntentFromLocator(
         String locator) {
 
-    if (locator.contains("//button")
-            || locator.contains("/button")
-            || locator.contains("@type='submit'")
-            || locator.contains("@type=\"submit\"")) {
+    if (locator == null || locator.isBlank()) {
+        return ElementIntent.UNKNOWN;
+    }
+
+    String normalized =
+            locator.toLowerCase().trim();
+
+    /*
+     * INPUT
+     */
+    if (normalized.contains("//input")
+            || normalized.contains("/input")
+            || normalized.contains("//textarea")
+            || normalized.contains("/textarea")) {
+
+        return ElementIntent.INPUT;
+    }
+
+    /*
+     * BUTTON
+     */
+    if (normalized.contains("//button")
+            || normalized.contains("/button")
+            || normalized.contains("@type='submit'")
+            || normalized.contains("@type=\"submit\"")) {
 
         return ElementIntent.BUTTON;
     }
 
-    if (locator.contains("//select")
-            || locator.contains("/select")) {
+    /*
+     * DROPDOWN
+     */
+    if (normalized.contains("//select")
+            || normalized.contains("/select")) {
 
         return ElementIntent.DROPDOWN;
     }
 
-    if (locator.contains("//a")
-            || locator.contains("/a[")) {
+    /*
+     * LINK
+     */
+    if (normalized.contains("//a")
+            || normalized.contains("/a[")) {
 
         return ElementIntent.LINK;
     }
 
-    if (locator.contains("@type='checkbox'")
-            || locator.contains("@type=\"checkbox\"")) {
+    /*
+     * CHECKBOX
+     */
+    if (normalized.contains("@type='checkbox'")
+            || normalized.contains("@type=\"checkbox\"")) {
 
         return ElementIntent.CHECKBOX;
     }
 
-    if (locator.contains("@type='radio'")
-            || locator.contains("@type=\"radio\"")) {
+    /*
+     * RADIO
+     */
+    if (normalized.contains("@type='radio'")
+            || normalized.contains("@type=\"radio\"")) {
 
         return ElementIntent.RADIO;
     }
 
     return ElementIntent.UNKNOWN;
+}
+private TargetCardinality inferTargetCardinality(
+        String locatorDeclaration,
+        ExecutionContext executionContext) {
+
+    /*
+     * Execution/source evidence is stronger than
+     * variable-name guessing.
+     *
+     * At this stage the framework does not yet have
+     * direct access to the original Selenium API call,
+     * so do not guess COLLECTION from the variable name.
+     *
+     * Keep the context UNKNOWN until reliable evidence
+     * is available.
+     */
+    return TargetCardinality.UNKNOWN;
 }
 }

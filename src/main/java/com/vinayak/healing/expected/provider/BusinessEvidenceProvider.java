@@ -21,17 +21,6 @@ public class BusinessEvidenceProvider {
         }
 
         /*
-         * Business label
-         */
-        addEvidence(
-                evidences,
-                ExpectedEvidenceType.LABEL,
-                context.getNearestLabel(),
-                92,
-                "nearestLabel",
-                "Derived from business label");
-
-        /*
          * Business text
          */
         addEvidence(
@@ -55,7 +44,6 @@ public class BusinessEvidenceProvider {
 
         if (value == null
                 || value.isBlank()) {
-
             return;
         }
 

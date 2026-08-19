@@ -1,7 +1,11 @@
 package com.vinayak.healing.engine;
 
 import com.vinayak.healing.analytics.HealingAnalytics;
+import com.vinayak.healing.decision.SemanticEvidence;
+import com.vinayak.healing.decision.SemanticEvidenceEvaluator;
 import com.vinayak.healing.dom.DomCandidateFinder;
+import com.vinayak.healing.learning.LearningEngine;
+import com.vinayak.healing.learning.LearningRecorder;
 import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
 import com.vinayak.healing.ranking.CandidateRanker;
@@ -23,6 +27,35 @@ public class CollectionHealingEngine {
     private final CandidateRanker candidateRanker =
             new CandidateRanker();
 
+            private final SemanticEvidenceEvaluator
+        semanticEvidenceEvaluator =
+                new SemanticEvidenceEvaluator();
+
+    /*
+     * =====================================================
+     * LEARNING
+     * =====================================================
+     *
+     * Collection healing uses the same learning mechanism
+     * as the rest of the framework.
+     *
+     * Collection healing is recorded as historical evidence,
+     * but it is NOT eligible for the single-element cache.
+     */
+    private final LearningRecorder learningRecorder;
+
+    public CollectionHealingEngine(
+        LearningEngine learningEngine) {
+
+    if (learningEngine == null) {
+        throw new IllegalArgumentException(
+                "LearningEngine cannot be null.");
+    }
+
+    this.learningRecorder =
+            new LearningRecorder(learningEngine);
+}
+
     public List<WebElement> heal(
             WebDriver driver,
             By failedLocator,
@@ -35,7 +68,8 @@ public class CollectionHealingEngine {
             return List.of();
         }
 
-        long startTime = System.currentTimeMillis();
+        long startTime =
+                System.currentTimeMillis();
 
         System.out.println(
                 "\n========== COLLECTION HEALING ==========");
@@ -83,9 +117,10 @@ public class CollectionHealingEngine {
         try {
 
             candidates =
-                    candidateRanker.rank(
-                            context,
-                            candidates);
+        candidateRanker.rank(
+                context,
+                candidates,
+                true);
 
         } catch (Exception exception) {
 
@@ -116,14 +151,10 @@ public class CollectionHealingEngine {
                         LocatorBuilder.build(
                                 candidate);
 
-                               
-
             } catch (Exception exception) {
 
                 continue;
             }
-
-
 
             if (candidateLocator == null) {
                 continue;
@@ -163,15 +194,15 @@ public class CollectionHealingEngine {
 
             if (!isCollectionCapableLocator(candidate)) {
 
-    System.out.println(
-            "COLLECTION REJECTED | "
-                    + candidate.getLocatorType()
-                    + "="
-                    + candidate.getLocatorValue()
-                    + " | reason=single-element locator type");
+                System.out.println(
+                        "COLLECTION REJECTED | "
+                                + candidate.getLocatorType()
+                                + "="
+                                + candidate.getLocatorValue()
+                                + " | reason=single-element locator type");
 
-    continue;
-}
+                continue;
+            }
 
             // ==========================================
             // COLLECTION SEMANTIC SCORE
@@ -214,28 +245,36 @@ public class CollectionHealingEngine {
                     calculateStructuralScore(
                             matches);
 
-            double collectionScore =
-                    candidate.getFinalScore()
-                            + collectionIdentityScore
-                            + structuralScore;
+           double learningScore =
+        candidateRanker.calculateLearningScore(
+                context,
+                candidate,
+                true);
 
-            System.out.println(
-                    "COLLECTION CANDIDATE | "
-                            + candidate.getLocatorType()
-                            + "="
-                            + candidate.getLocatorValue()
-                            + " | matches="
-                            + matches.size()
-                            + " | displayed="
-                            + displayedCount
-                            + " | rankScore="
-                            + candidate.getFinalScore()
-                            + " | identity="
-                            + collectionIdentityScore
-                            + " | structure="
-                            + structuralScore
-                            + " | collectionScore="
-                            + collectionScore);
+double collectionScore =
+        candidate.getFinalScore()
+                + collectionIdentityScore
+                + structuralScore;
+
+           System.out.println(
+        "COLLECTION CANDIDATE | "
+                + candidate.getLocatorType()
+                + "="
+                + candidate.getLocatorValue()
+                + " | matches="
+                + matches.size()
+                + " | displayed="
+                + displayedCount
+                + " | rankScore="
+                + candidate.getFinalScore()
+                + " | identity="
+                + collectionIdentityScore
+                + " | structure="
+                + structuralScore
+                + " | learning="
+                + learningScore
+                + " | collectionScore="
+                + collectionScore);
 
             if (bestMatch == null
                     || collectionScore
@@ -263,38 +302,65 @@ public class CollectionHealingEngine {
         }
 
         CollectionDecisionEngine decisionEngine =
-        new CollectionDecisionEngine();
+                new CollectionDecisionEngine();
+
+      double learningScore =
+        candidateRanker.calculateLearningScore(
+                context,
+                bestMatch.candidate,
+                true);
+
+
+
+                int displayedCount =
+        (int) bestMatch.elements.stream()
+                .filter(WebElement::isDisplayed)
+                .count();
+
+                 SemanticEvidence semanticEvidence =
+        semanticEvidenceEvaluator.evaluate(
+                bestMatch.candidate,
+                context);
+
+                int semanticSignals =
+        semanticEvidence.getSignalCount();
+
+        System.out.println(
+        "COLLECTION SEMANTIC EVIDENCE"
+                + " | signals="
+                + semanticSignals
+                + " | "
+                + semanticEvidence);
 
 CollectionDecisionEngine.Result decision =
         decisionEngine.decide(
                 bestMatch.candidate,
                 bestMatch.collectionScore,
                 bestMatch.elements.size(),
-                (int) bestMatch.elements.stream()
-                        .filter(this::isDisplayed)
-                        .count(),
+                displayedCount,
                 true,
-                calculateScoreGap(candidates, bestMatch.candidate),
-                calculateSemanticSignals(
-                        context,
-                        bestMatch.candidate));
+                calculateScoreGap(
+                        candidates,
+                        bestMatch.candidate),
+                semanticSignals,
+                learningScore);
 
-System.out.println(
-        "COLLECTION DECISION = "
-                + decision.decision());
+        System.out.println(
+                "COLLECTION DECISION = "
+                        + decision.decision());
 
-System.out.println(
-        "CONFIDENCE = "
-                + decision.confidence());
+        System.out.println(
+                "CONFIDENCE = "
+                        + decision.confidence());
 
-if (decision.decision()
-        == CollectionDecisionEngine.Decision.REJECT) {
+        if (decision.decision()
+                == CollectionDecisionEngine.Decision.REJECT) {
 
-    System.out.println(
-            "Collection rejected by decision engine.");
+            System.out.println(
+                    "Collection rejected by decision engine.");
 
-    return List.of();
-}
+            return List.of();
+        }
 
         // ==========================================
         // 5. RETURN BEST COLLECTION
@@ -315,12 +381,72 @@ if (decision.decision()
                 "COLLECTION SCORE = "
                         + bestMatch.collectionScore);
 
-                     
+        /*
+         * =====================================================
+         * LEARNING RECORD
+         * =====================================================
+         *
+         * The collection healing has now been successfully
+         * validated by the CollectionDecisionEngine.
+         *
+         * Record it as historical evidence.
+         *
+         * IMPORTANT:
+         *
+         * cacheAllowed = false
+         *
+         * because this is a collection locator and must not
+         * enter the single-element locator cache path.
+         */
+        try {
 
-HealingAnalytics.deterministicHeal();
+            String pageObjectClass =
+                    extractPageObjectClass(
+                            context.getPageObjectPath());
 
-HealingAnalytics.addHealingTime(
-        System.currentTimeMillis() - startTime);
+         boolean learningRecorded =
+        learningRecorder.record(
+                context,
+                pageObjectClass,
+                bestMatch.candidate,
+                bestMatch.locator,
+                confidenceLevel(
+                        decision.confidence()),
+                true,
+                false,
+                "COLLECTION",
+                true,
+                decision.confidence());
+
+if (learningRecorded) {
+
+    System.out.println(
+            "COLLECTION LEARNING RECORDED");
+
+} else {
+
+    System.out.println(
+            "COLLECTION LEARNING SKIPPED");
+}
+
+        } catch (Exception exception) {
+
+            /*
+             * Learning must never break a successful healing.
+             *
+             * The collection has already been safely healed,
+             * therefore a learning-recording problem is isolated.
+             */
+            System.out.println(
+                    "COLLECTION LEARNING RECORDING FAILED | "
+                            + exception.getMessage());
+        }
+
+        HealingAnalytics.deterministicHeal();
+
+        HealingAnalytics.addHealingTime(
+                System.currentTimeMillis()
+                        - startTime);
 
         return bestMatch.elements;
     }
@@ -536,6 +662,199 @@ HealingAnalytics.addHealingTime(
                 .toLowerCase();
     }
 
+    // ==========================================
+    // LEARNING HELPERS
+    // ==========================================
+
+    /**
+     * Converts the numeric decision confidence into
+     * the confidence level expected by LearningRecorder.
+     *
+     * This does not affect the numeric confidence stored
+     * in the LearningRecord.
+     */
+    private String confidenceLevel(
+            double confidence) {
+
+        if (confidence >= 80.0) {
+            return "HIGH";
+        }
+
+        if (confidence >= 50.0) {
+            return "MEDIUM";
+        }
+
+        if (confidence > 0.0) {
+            return "LOW";
+        }
+
+        return "UNKNOWN";
+    }
+
+    /**
+     * Extracts the Page Object class name from the
+     * Page Object path stored in FailureContext.
+     *
+     * Examples:
+     *
+     * /src/test/java/pages/CheckoutPage.java
+     *        -> CheckoutPage
+     *
+     * pages.CheckoutPage
+     *        -> CheckoutPage
+     */
+    private String extractPageObjectClass(
+            String pageObjectPath) {
+
+        if (pageObjectPath == null
+                || pageObjectPath.isBlank()) {
+
+            return "UNKNOWN";
+        }
+
+        String normalized =
+                pageObjectPath
+                        .replace('\\', '/')
+                        .trim();
+
+        int slash =
+                normalized.lastIndexOf('/');
+
+        if (slash >= 0) {
+
+            normalized =
+                    normalized.substring(
+                            slash + 1);
+        }
+
+        if (normalized.endsWith(".java")) {
+
+            normalized =
+                    normalized.substring(
+                            0,
+                            normalized.length() - 5);
+        }
+
+        int dot =
+                normalized.lastIndexOf('.');
+
+        if (dot >= 0
+                && dot < normalized.length() - 1) {
+
+            normalized =
+                    normalized.substring(
+                            dot + 1);
+        }
+
+        return normalized.isBlank()
+                ? "UNKNOWN"
+                : normalized;
+    }
+
+    // ==========================================
+    // COLLECTION CAPABILITY
+    // ==========================================
+
+    private boolean isCollectionCapableLocator(
+            LocatorCandidate candidate) {
+
+        if (candidate == null
+                || candidate.getLocatorType() == null) {
+
+            return false;
+        }
+
+        String type =
+                candidate.getLocatorType()
+                        .trim()
+                        .toLowerCase();
+
+        String value =
+                candidate.getLocatorValue() == null
+                        ? ""
+                        : candidate.getLocatorValue()
+                                .trim()
+                                .toLowerCase();
+
+        /*
+         * Exact text locators normally identify
+         * semantic single elements such as:
+         *
+         * Checkout: Overview
+         * Sauce Labs Backpack
+         * Finish
+         *
+         * They must not heal a collection locator.
+         */
+        if (type.equals("text")) {
+            return false;
+        }
+
+        /*
+         * Exact-text XPath is also a single-element
+         * semantic locator, even if Selenium happens
+         * to return multiple matches.
+         */
+        if (type.equals("xpath")
+                && (value.contains("normalize-space()")
+                || value.contains("text()"))) {
+
+            return false;
+        }
+
+        return true;
+    }
+
+    // ==========================================
+    // SCORE GAP
+    // ==========================================
+
+    private double calculateScoreGap(
+            List<LocatorCandidate> candidates,
+            LocatorCandidate best) {
+
+        if (best == null || candidates == null) {
+            return 0;
+        }
+
+        double secondBest =
+                Double.NEGATIVE_INFINITY;
+
+        for (LocatorCandidate candidate :
+                candidates) {
+
+            if (candidate == null
+                    || candidate == best) {
+
+                continue;
+            }
+
+            secondBest =
+                    Math.max(
+                            secondBest,
+                            candidate.getFinalScore());
+        }
+
+        if (secondBest
+                == Double.NEGATIVE_INFINITY) {
+
+            return best.getFinalScore();
+        }
+
+        return best.getFinalScore()
+                - secondBest;
+    }
+
+    // ==========================================
+    // SEMANTIC SIGNALS
+    // ==========================================
+
+
+
+    // ==========================================
+    // COLLECTION MATCH
+    // ==========================================
+
     private static class CollectionMatch {
 
         private final LocatorCandidate candidate;
@@ -564,115 +883,4 @@ HealingAnalytics.addHealingTime(
                     collectionScore;
         }
     }
-    private boolean isCollectionCapableLocator(
-        LocatorCandidate candidate) {
-
-    if (candidate == null
-            || candidate.getLocatorType() == null) {
-
-        return false;
-    }
-
-    String type =
-            candidate.getLocatorType()
-                    .trim()
-                    .toLowerCase();
-
-    String value =
-            candidate.getLocatorValue() == null
-                    ? ""
-                    : candidate.getLocatorValue()
-                            .trim()
-                            .toLowerCase();
-
-    /*
-     * Exact text locators normally identify
-     * semantic single elements such as:
-     *
-     * Checkout: Overview
-     * Sauce Labs Backpack
-     * Finish
-     *
-     * They must not heal a collection locator.
-     */
-    if (type.equals("text")) {
-        return false;
-    }
-
-    /*
-     * Exact-text XPath is also a single-element
-     * semantic locator, even if Selenium happens
-     * to return multiple matches.
-     */
-    if (type.equals("xpath")
-            && (value.contains("normalize-space()")
-                || value.contains("text()"))) {
-
-        return false;
-    }
-
-    return true;
-}
-private double calculateScoreGap(
-        List<LocatorCandidate> candidates,
-        LocatorCandidate best) {
-
-    if (best == null || candidates == null) {
-        return 0;
-    }
-
-    double secondBest = Double.NEGATIVE_INFINITY;
-
-    for (LocatorCandidate candidate : candidates) {
-
-        if (candidate == null || candidate == best) {
-            continue;
-        }
-
-        secondBest = Math.max(
-                secondBest,
-                candidate.getFinalScore());
-    }
-
-    if (secondBest == Double.NEGATIVE_INFINITY) {
-        return best.getFinalScore();
-    }
-
-    return best.getFinalScore() - secondBest;
-}
-
-private int calculateSemanticSignals(
-        FailureContext context,
-        LocatorCandidate candidate) {
-
-    int signals = 0;
-
-    String variable =
-            normalize(context.getVariableName());
-
-    String locator =
-            normalize(candidate.getLocatorValue());
-
-    if (!variable.isBlank()
-            && locator.contains(variable)) {
-
-        signals++;
-    }
-
-    if (candidate.getIntent()
-            == context.getExpectedIntent()) {
-
-        signals++;
-    }
-
-    if (context.getExpectedTag() != null
-            && context.getExpectedTag()
-                    .equalsIgnoreCase(
-                            candidate.getTagName())) {
-
-        signals++;
-    }
-
-    return signals;
-}
 }

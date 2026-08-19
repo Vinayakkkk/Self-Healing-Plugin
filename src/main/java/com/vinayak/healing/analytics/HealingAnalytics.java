@@ -61,6 +61,13 @@ public final class HealingAnalytics {
                 METRICS.getTotalHealingAttempts() + 1);
     }
 
+    public static void failure(String page) {
+
+    failure();
+
+    METRICS.recordPageFailure(page);
+}
+
     // =====================================================
     // TIME
     // =====================================================
@@ -83,31 +90,57 @@ public final class HealingAnalytics {
                     millis);
         }
     }
+ public static void capabilityFailure() {
 
+    METRICS.setCapabilityFailures(
+            METRICS.getCapabilityFailures() + 1);
+}
+public static void duplicateResolution() {
+
+    METRICS.setDuplicateResolutions(
+            METRICS.getDuplicateResolutions() + 1);
+}
+public static void learningRecorded() {
+
+    METRICS.setLearningRecords(
+            METRICS.getLearningRecords() + 1);
+}
+public static void pageFailure(String page) {
+
+    METRICS.recordPageFailure(page);
+}
     // =====================================================
     // RESET
     // =====================================================
 
-    public static void reset() {
+public static void reset() {
 
-        METRICS.setCacheHits(0);
-        METRICS.setCacheMisses(0);
+    METRICS.setCacheHits(0);
+    METRICS.setCacheMisses(0);
 
-        METRICS.setDeterministicHeals(0);
-        METRICS.setAiHeals(0);
+    METRICS.setDeterministicHeals(0);
+    METRICS.setAiHeals(0);
 
-        METRICS.setValidationFailures(0);
-        METRICS.setFailures(0);
+    METRICS.setValidationFailures(0);
+    METRICS.setFailures(0);
 
-        METRICS.setTotalHealingAttempts(0);
+    METRICS.setTotalHealingAttempts(0);
 
-        METRICS.setTotalHealingTime(0);
+    METRICS.setTotalHealingTime(0);
 
-        METRICS.setMinimumHealingTime(
-                Long.MAX_VALUE);
+    METRICS.setMinimumHealingTime(
+            Long.MAX_VALUE);
 
-        METRICS.setMaximumHealingTime(0);
-    }
+    METRICS.setCapabilityFailures(0);
+
+    METRICS.setDuplicateResolutions(0);
+
+    METRICS.setLearningRecords(0);
+
+    METRICS.clearPageFailures();
+
+    METRICS.setMaximumHealingTime(0);
+}
 
     // =====================================================
     // GET

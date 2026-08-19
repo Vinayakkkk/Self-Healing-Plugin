@@ -182,16 +182,86 @@ case TEXT:
 
                 break;
 
-            case LABEL:
+case LABEL:
 
-                if (context.getExpectedLabel()
-                        == null) {
+    /*
+     * ========================================================
+     * LABEL EVIDENCE
+     * ========================================================
+     *
+     * A DOM label describes the candidate element currently
+     * present in the page.
+     *
+     * It is NOT automatically proof of what the failed test
+     * expected.
+     *
+     * Example:
+     *
+     * Failed element:
+     *     employeeNameInput
+     *
+     * Current DOM:
+     *     Employee Name
+     *
+     * A DOM label such as "Employee Name" is useful for
+     * candidate ranking, but it must not become the
+     * authoritative expectedLabel unless an explicit semantic
+     * provider supplied it.
+     *
+     * This prevents stale/wrong DOM context such as:
+     *
+     *     expectedLabel = Password
+     *
+     * from blocking otherwise valid candidates.
+     */
 
-                    context.setExpectedLabel(
-                            score.getValue());
-                }
+    if (context.getExpectedLabel() == null
+            || context.getExpectedLabel().isBlank()) {
 
-                break;
+        boolean authoritativeLabel =
+                false;
+
+        for (ExpectedEvidence evidence :
+                score.getSupportingEvidence()) {
+
+            if (evidence == null) {
+                continue;
+            }
+
+            /*
+             * DOM labels are contextual evidence only.
+             */
+            if (evidence.getSource()
+                    == EvidenceSource.DOM) {
+
+                continue;
+            }
+
+            /*
+             * Locator labels are also not authoritative.
+             */
+            if (evidence.getSource()
+                    == EvidenceSource.LOCATOR) {
+
+                continue;
+            }
+
+            /*
+             * Only explicit semantic/business/navigation
+             * evidence may establish the expected label.
+             */
+            authoritativeLabel = true;
+            break;
+        }
+
+        if (authoritativeLabel) {
+
+            context.setExpectedLabel(
+                    score.getValue());
+        }
+    }
+
+    break;
 
             case PAGE:
 

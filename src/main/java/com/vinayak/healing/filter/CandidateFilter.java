@@ -33,6 +33,33 @@ public List<LocatorCandidate> filter(
                 .toList();
     }
 
+    ExecutionAction effectiveAction =
+        context.getFailedAction();
+
+if (effectiveAction == null
+        || effectiveAction == ExecutionAction.UNKNOWN) {
+
+    ExecutionAction latestAction =
+            com.vinayak.healing.execution.ExecutionTracker
+                    .getContext()
+                    .getLatestAction() != null
+            ? com.vinayak.healing.execution.ExecutionTracker
+                    .getContext()
+                    .getLatestAction()
+                    .getAction()
+            : null;
+
+    if (latestAction != null
+            && latestAction != ExecutionAction.UNKNOWN) {
+
+        effectiveAction = latestAction;
+
+        System.out.println(
+                "ACTION RECOVERED FROM EXECUTION CONTEXT : "
+                        + effectiveAction);
+    }
+}
+
     int originalCount =
         candidates.size();
 
@@ -48,14 +75,22 @@ public List<LocatorCandidate> filter(
     continue;
 }
 
-       // 1. Strongest signal: failed operation.
-//
-// For your framework flow, driver.type(...) records SEND_KEYS
-// immediately before findElement(locator), so this action is reliable.
-if (context.getFailedAction() == ExecutionAction.SEND_KEYS
-        && (context.getExpectedIntent() == null
-            || context.getExpectedIntent() == ElementIntent.UNKNOWN
-            || context.getExpectedIntent() == ElementIntent.INPUT)){
+
+
+       /*
+ * =====================================================
+ * ACTION CAPABILITY SAFETY GATE
+ * =====================================================
+ *
+ * SEND_KEYS is an executable action.
+ *
+ * The action itself is stronger evidence than the
+ * current semantic intent classification.
+ *
+ * SEND_KEYS -> input / textarea only.
+ */
+if (effectiveAction
+        == ExecutionAction.SEND_KEYS) {
 
     String tag =
             candidate.getTagName() == null
@@ -65,26 +100,42 @@ if (context.getFailedAction() == ExecutionAction.SEND_KEYS
                             .toLowerCase();
 
     boolean editable =
-        tag.equals("input")
-                || tag.equals("textarea");
+            tag.equals("input")
+                    || tag.equals("textarea");
 
     if (!editable) {
 
-        
+        System.out.println(
+                "REJECTED - SEND_KEYS requires editable element"
+                        + " | locator="
+                        + candidate.getLocatorType()
+                        + "="
+                        + candidate.getLocatorValue()
+                        + " | tag="
+                        + tag);
 
         continue;
     }
+
 }
 
         // 2. Second signal: variable-name intent.
-        if (!matchesExpectedIntent(
-                candidate,
-                context.getExpectedIntent())) {
+ElementIntent effectiveIntent =
+        context.getExpectedIntent();
 
-            
+if (effectiveAction == ExecutionAction.SEND_KEYS
+        || effectiveAction == ExecutionAction.CLEAR) {
 
-            continue;
-        }
+    effectiveIntent =
+            ElementIntent.INPUT;
+}
+
+if (!matchesExpectedIntent(
+        candidate,
+        effectiveIntent)) {
+
+    continue;
+}
 
         /*
          * 3. Weak signal: tag parsed from the locator that failed.
@@ -163,6 +214,24 @@ filtered.add(candidate);
 
     int afterActionIntentFilter =
         filtered.size();
+
+        System.out.println("\n===== FILTERED CANDIDATES BEFORE TOP-10 =====");
+
+for (LocatorCandidate candidate : filtered) {
+
+    System.out.println(
+            candidate.getLocatorType()
+                    + "="
+                    + candidate.getLocatorValue()
+                    + " | tag="
+                    + candidate.getTagName()
+                    + " | intent="
+                    + candidate.getIntent()
+                    + " | text="
+                    + candidate.getElementText()
+                    + " | score="
+                    + candidate.getFinalScore());
+}
 
     filtered.sort(
         Comparator.comparingDouble(

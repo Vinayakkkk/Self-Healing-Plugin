@@ -69,6 +69,21 @@ public final class HealingSummary {
                 "Healing Failures :",
                 metrics.getFailures());
 
+                System.out.printf(
+        "%-35s %d%n",
+        "Capability Failures :",
+        metrics.getCapabilityFailures());
+
+System.out.printf(
+        "%-35s %d%n",
+        "Duplicate Resolutions :",
+        metrics.getDuplicateResolutions());
+
+System.out.printf(
+        "%-35s %d%n",
+        "Learning Records :",
+        metrics.getLearningRecords());
+
         System.out.printf(
                 "%-35s %.2f %% %n",
                 "Success Rate :",
@@ -78,6 +93,21 @@ public final class HealingSummary {
                 "%-35s %.2f %% %n",
                 "Cache Hit Rate :",
                 metrics.getCacheHitRate());
+
+                System.out.printf(
+        "%-35s %.2f %% %n",
+        "AI Healing Rate :",
+        metrics.getAiHealingRate());
+
+System.out.printf(
+        "%-35s %.2f %% %n",
+        "Duplicate Rate :",
+        metrics.getDuplicateRate());
+
+System.out.printf(
+        "%-35s %.2f %% %n",
+        "Learning Rate :",
+        metrics.getLearningRate());
 
         System.out.printf(
                 "%-35s %.2f ms%n",
@@ -100,7 +130,22 @@ public final class HealingSummary {
                     "Minimum Healing Time :",
                     metrics.getMinimumHealingTime());
         }
+System.out.println(
+        "Top Broken Pages :");
 
+metrics.getPageFailures()
+        .entrySet()
+        .stream()
+        .sorted(
+                java.util.Map.Entry
+                        .<String, Long>comparingByValue()
+                        .reversed())
+        .limit(5)
+        .forEach(entry ->
+                System.out.printf(
+                        "  %-33s %d%n",
+                        entry.getKey(),
+                        entry.getValue()));
         System.out.printf(
                 "%-35s %d%n",
                 "Current Cache Size :",

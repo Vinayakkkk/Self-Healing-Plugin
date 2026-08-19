@@ -60,14 +60,17 @@ public final class ExecutionRecorder {
              * ==========================================
              */
 
-            if (ExecutionTracker.getContext()
-                    .getLatestAction() != null) {
+           ExecutionAction action =
+        ExecutionTracker.consumeLatestAction();
 
-                step.setAction(
-                        ExecutionTracker.getContext()
-                                .getLatestAction()
-                                .getAction());
-            }
+if (action != null) {
+
+    step.setAction(action);
+
+    System.out.println(
+            "[RECORD DEBUG] ACTION CONSUMED = "
+                    + action);
+}
 
             /*
              * ==========================================

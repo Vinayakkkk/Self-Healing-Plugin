@@ -20,6 +20,30 @@ public class LocatorEvidenceProvider {
             Pattern.compile(
                     "normalize-space\\(\\)\\s*=\\s*['\"]([^'\"]+)['\"]");
 
+                    private static final Pattern LABEL_TEXT_PATTERN =
+        Pattern.compile(
+                "//label\\s*\\[\\s*"
+                        + "text\\(\\)\\s*=\\s*['\"]([^'\"]+)['\"]"
+                        + "\\s*\\]",
+                Pattern.CASE_INSENSITIVE);
+
+private static final Pattern LABEL_NORMALIZE_PATTERN =
+        Pattern.compile(
+                "//label\\s*\\[\\s*"
+                        + "normalize-space\\(\\)\\s*=\\s*['\"]([^'\"]+)['\"]"
+                        + "\\s*\\]",
+                Pattern.CASE_INSENSITIVE);
+
+private static final Pattern LABEL_CONTAINS_PATTERN =
+        Pattern.compile(
+                "//label\\s*\\[\\s*"
+                        + "contains\\s*\\(\\s*"
+                        + "(?:text\\(\\)|normalize-space\\(\\))"
+                        + "\\s*,\\s*['\"]([^'\"]+)['\"]"
+                        + "\\s*\\)"
+                        + "\\s*\\]",
+                Pattern.CASE_INSENSITIVE);
+
     /*
      * Selenium locator:
      *
@@ -89,6 +113,31 @@ public class LocatorEvidenceProvider {
          * 1. Existing XPath text extraction
          * ==========================================
          */
+
+extractLabel(
+        locator,
+        LABEL_TEXT_PATTERN,
+        evidences);
+
+extractLabel(
+        locator,
+        LABEL_NORMALIZE_PATTERN,
+        evidences);
+
+extractLabel(
+        locator,
+        LABEL_CONTAINS_PATTERN,
+        evidences);
+
+extract(
+        locator,
+        TEXT_PATTERN,
+        evidences);
+
+extract(
+        locator,
+        NORMALIZE_PATTERN,
+        evidences);
 
         extract(
                 locator,
@@ -284,6 +333,51 @@ public class LocatorEvidenceProvider {
      * GENERIC PATTERN EXTRACTION
      * =========================================================
      */
+
+    private void extractLabel(
+        String locator,
+        Pattern pattern,
+        List<ExpectedEvidence> evidences) {
+
+    if (locator == null
+            || locator.isBlank()) {
+
+        return;
+    }
+
+    Matcher matcher =
+            pattern.matcher(locator);
+
+    while (matcher.find()) {
+
+        String value =
+                matcher.group(1);
+
+        if (value == null
+                || value.isBlank()) {
+
+            continue;
+        }
+
+        ExpectedEvidence evidence =
+                new ExpectedEvidence(
+                        EvidenceSource.LOCATOR,
+                        ExpectedEvidenceType.LABEL,
+                        value.trim(),
+                        100,
+                        "Extracted from label in XPath locator");
+
+        evidence.setAttribute("label");
+
+        evidence.setRawValue(locator);
+
+        evidences.add(evidence);
+
+        System.out.println(
+                "LOCATOR LABEL EVIDENCE | value="
+                        + value.trim());
+    }
+}
 
     private void extract(
             String locator,
