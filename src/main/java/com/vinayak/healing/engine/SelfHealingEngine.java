@@ -11,7 +11,9 @@ import com.vinayak.healing.cache.LocatorCache;
 import com.vinayak.healing.repair.RepairReport;
 import org.openqa.selenium.NoSuchElementException;
 import com.vinayak.healing.validator.CachedLocatorValidator;
-
+import com.vinayak.healing.learning.LearningKey;
+import com.vinayak.healing.learning.LearningRecord;
+import java.util.List;
 import com.vinayak.healing.dom.XPathFallbackGenerator;
 import com.vinayak.healing.execution.ExecutionAction;
 import com.vinayak.healing.execution.ExecutionTracker;
@@ -314,6 +316,29 @@ if (learningElement != null) {
 By learnedLocatorForReport =
         lastSuccessfulLocator.get();
 
+        LearningRecord learningRecord =
+        findLearningRecord(
+                context,
+                pageObjectClass);
+
+double reportScore =
+        learningRecord == null
+                ? 0.0
+                : learningRecord.getCandidateScore();
+
+String reportConfidence =
+        learningRecord == null
+                ? "UNKNOWN"
+                : learningRecord.getConfidenceLevel();
+
+                boolean reportHealingAllowed =
+        learningRecord != null
+                && learningRecord.isHealingAllowed();
+
+boolean reportCacheAllowed =
+        learningRecord != null
+                && learningRecord.isCacheAllowed();
+
 System.out.println(
         "[HEALING REPORT DEBUG]"
                 + " source=LEARNING"
@@ -332,10 +357,10 @@ HealingReportManager.logHealing(
         learnedLocatorForReport == null
                 ? "UNKNOWN"
                 : learnedLocatorForReport.toString(),
-        0.0,
-        "HIGH",
-        true,
-        true,
+        reportScore,
+        reportConfidence,
+        reportHealingAllowed,
+        reportCacheAllowed,
         "LEARNING");
 
     return learningElement;
@@ -656,7 +681,7 @@ RUNTIME_HEALED_LOCATORS.put(
         healingDecision.isCacheAllowed(),
         "DIRECT",
         true,
-        100.0);
+        60.0);
 
     LocatorSuggestion suggestion =
         CandidateConverter.convert(
@@ -984,7 +1009,7 @@ learningRecorder.record(
         true,
         "AI",
         true,
-        100.0);
+100.0);
 
 WebElement element =
         findElementWithShadowSupport(
@@ -1823,5 +1848,94 @@ if (iframeElement != null) {
 throw new NoSuchElementException(
         "Unable to locate " + locator);
 }
+private double confidenceToOutcomeScore(
+        CollectionDecisionEngine.Decision confidence) {
 
+    if (confidence == null) {
+        return 0.0;
+    }
+
+    switch (confidence) {
+
+        case HIGH:
+            return 100.0;
+
+        case MEDIUM:
+            return 60.0;
+
+        case LOW:
+        case REJECT:
+        default:
+            return 0.0;
+    }
+}
+private LearningRecord findLearningRecord(
+        FailureContext context,
+        String pageObjectClass) {
+
+    if (context == null) {
+        return null;
+    }
+
+    String expectedIntent =
+            context.getExpectedIntent() == null
+                    ? "UNKNOWN"
+                    : context.getExpectedIntent().name();
+
+    String action =
+            context.getFailedAction() == null
+                    ? "UNKNOWN"
+                    : context.getFailedAction().name();
+
+    LearningKey key =
+            new LearningKey(
+                    pageObjectClass,
+                    context.getVariableName(),
+                    expectedIntent,
+                    action,
+                    context.getFailedLocator());
+
+    List<LearningRecord> history =
+            learningEngine
+                    .getRepository()
+                    .find(key);
+
+    if (history == null || history.isEmpty()) {
+        return null;
+    }
+
+    LearningRecord bestRecord = null;
+
+    for (LearningRecord record : history) {
+
+        if (record == null) {
+            continue;
+        }
+
+        if (!record.isOutcomeSuccess()) {
+            continue;
+        }
+
+        if (!record.isHealingAllowed()) {
+            continue;
+        }
+
+        if (bestRecord == null) {
+            bestRecord = record;
+            continue;
+        }
+
+        /*
+         * Prefer the record with the strongest
+         * historical candidate score.
+         */
+        if (record.getCandidateScore()
+                > bestRecord.getCandidateScore()) {
+
+            bestRecord = record;
+        }
+    }
+
+    return bestRecord;
+}
 }

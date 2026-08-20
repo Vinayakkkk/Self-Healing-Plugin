@@ -254,7 +254,8 @@ public class CollectionHealingEngine {
 double collectionScore =
         candidate.getFinalScore()
                 + collectionIdentityScore
-                + structuralScore;
+                + structuralScore
+                + learningScore;
 
            System.out.println(
         "COLLECTION CANDIDATE | "

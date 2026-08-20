@@ -1,5 +1,5 @@
 package com.vinayak.healing.ranking;
-
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -16,6 +16,23 @@ import com.vinayak.healing.model.LocatorCandidate;
 public class CandidateRanker {
 
         private static final double LOCATOR_QUALITY_WEIGHT = 1.5;
+
+        private static final double LEARNING_BASE_SCORE = 1000.0;
+
+private static final double LEARNING_MAX_SCORE = 1300.0;
+
+private static final double LEARNING_RECENCY_WEIGHT = 100.0;
+
+/*
+ * Learning evidence loses influence over time.
+ *
+ * 0 days  -> 100%
+ * 7 days  -> ~87%
+ * 30 days -> ~50%
+ * 60 days -> ~25%
+ * 90 days -> ~12.5%
+ */
+private static final double LEARNING_HALF_LIFE_DAYS = 30.0;
 
     private final ParentScorer parentScorer =
         new ParentScorer();
@@ -1134,11 +1151,11 @@ private double calculateRanking2EvidenceAdjustment(
      * from a previous successful execution rather than only
      * from the current DOM.
      */
-    boolean strongLearning =
-            learning >= 700;
+   boolean strongLearning =
+        learning >= 200;
 
-    boolean supportingLearning =
-            learning >= 300;
+boolean supportingLearning =
+        learning >= 50;
 
     double adjustment = 0.0;
 
@@ -2052,12 +2069,16 @@ public double calculateLearningScore(
      * strengthen future ranking.
      */
 
-    int matchingAttempts = 0;
-    int matchingSuccesses = 0;
+   int matchingAttempts = 0;
+int matchingSuccesses = 0;
 
-    double totalOutcomeConfidence = 0.0;
+double totalOutcomeConfidence = 0.0;
 
-    double bestOutcomeConfidence = 0.0;
+
+
+
+
+double successfulRecencyWeight = 0.0;
 
     for (LearningRecord record : history) {
 
@@ -2138,34 +2159,49 @@ if (learnedLocatorSimilarity <= 0.0) {
          */
         matchingAttempts++;
 
+        double recencyWeight =
+        calculateLearningRecencyWeight(
+                record);
+
+
+
         /*
          * Only successful + allowed healing is allowed
          * to contribute positive learning.
          */
         if (!record.isOutcomeSuccess()) {
-            continue;
-        }
+    continue;
+}
 
-        if (!record.isHealingAllowed()) {
-            continue;
-        }
+if (!record.isHealingAllowed()) {
+    continue;
+}
 
-        double outcomeConfidence =
-                record.getOutcomeConfidence();
+successfulRecencyWeight +=
+        recencyWeight;
 
-        if (outcomeConfidence <= 0) {
-            continue;
-        }
+double outcomeConfidence =
+        normalizeOutcomeConfidence(
+                record.getOutcomeConfidence());
+
+/*
+ * MEDIUM and HIGH historical healing are valid
+ * learning evidence as long as the healing was
+ * successful and allowed.
+ *
+ * LOW / REJECT should never reach this point because
+ * healingAllowed is checked above.
+ */
+if (outcomeConfidence <= 0) {
+    continue;
+}
 
         matchingSuccesses++;
 
         totalOutcomeConfidence +=
                 outcomeConfidence;
 
-        bestOutcomeConfidence =
-                Math.max(
-                        bestOutcomeConfidence,
-                        outcomeConfidence);
+
     }
 
     /*
@@ -2202,6 +2238,10 @@ if (learnedLocatorSimilarity <= 0.0) {
             totalOutcomeConfidence
                     / matchingSuccesses;
 
+                    double recencyConfidence =
+        successfulRecencyWeight
+                / matchingSuccesses;
+
     /*
      * ==================================================
      * REPEATED SUCCESS BONUS
@@ -2229,10 +2269,7 @@ if (learnedLocatorSimilarity <= 0.0) {
                     0,
                     matchingSuccesses - 1);
 
-    double repeatedSuccessBonus =
-            Math.min(
-                    repeatedSuccesses * 50.0,
-                    250.0);
+
 
     /*
      * ==================================================
@@ -2243,72 +2280,197 @@ if (learnedLocatorSimilarity <= 0.0) {
      * same locator has failed in previous executions.
      */
 
-    double reliabilityAdjustedBonus =
-            repeatedSuccessBonus
-                    * reliability;
+   /*
+ * ==================================================
+ * RELIABILITY + RECENCY
+ * ==================================================
+ *
+ * Historical learning is useful only when:
+ *
+ * 1. The locator has succeeded historically.
+ * 2. The historical success was allowed.
+ * 3. The historical result is reasonably recent.
+ *
+ * Reliability reduces learning when previous
+ * attempts have failed.
+ */
 
-    double reliabilityAdjustedConfidence =
-            averageOutcomeConfidence
-                    * reliability;
 
-    /*
-     * ==================================================
-     * FINAL EXACT LEARNING SCORE
-     * ==================================================
-     *
-     * First successful record:
-     *
-     * 1000 + 50 = 1050
-     *
-     * Second successful record:
-     *
-     * 1000 + 50 + 50 = 1100
-     *
-     * Third successful record:
-     *
-     * 1000 + 50 + 100 = 1150
-     *
-     * Maximum:
-     *
-     * 1000 + confidence + 250
-     */
+double recencyBonus =
+        LEARNING_RECENCY_WEIGHT
+                * recencyConfidence
+                * reliability;
 
-    double exactLearningScore =
-            1000.0
-                    + reliabilityAdjustedConfidence
-                    + reliabilityAdjustedBonus;
+/*
+ * ==================================================
+ * CONFIDENCE WEIGHTING
+ * ==================================================
+ *
+ * Historical confidence is intentionally preserved.
+ *
+ * HIGH confidence:
+ *      1.00
+ *
+ * MEDIUM confidence:
+ *      0.60
+ *
+ * LOW confidence:
+ *      0.00
+ *
+ * This means Medium healing can be learned,
+ * but High healing remains stronger evidence.
+ */
+double confidenceWeight;
 
-    /*
-     * Never allow historical learning to become
-     * unbounded.
-     */
+if (averageOutcomeConfidence >= 80.0) {
 
-    exactLearningScore =
-            Math.min(
-                    exactLearningScore,
-                    1300.0);
+    confidenceWeight = 1.00;
 
-    System.out.println(
-            "LEARNING AGGREGATED MATCH | "
-                    + candidateType
-                    + "="
-                    + candidateValue
-                    + " | attempts="
-                    + matchingAttempts
-                    + " | successes="
-                    + matchingSuccesses
-                    + " | reliability="
-                    + reliability
-                    + " | avgConfidence="
-                    + averageOutcomeConfidence
-                    + " | learningScore="
-                    + exactLearningScore
-                    + " | source="
-                    + (collectionMode
-                            ? "COLLECTION"
-                            : "ALL"));
+} else if (averageOutcomeConfidence >= 50.0) {
+
+    confidenceWeight = 0.60;
+
+} else {
+
+    confidenceWeight = 0.00;
+}
+
+/*
+ * ==================================================
+ * CONFIDENCE + RELIABILITY + RECENCY
+ * ==================================================
+ */
+double effectiveHistoricalConfidence =
+        confidenceWeight
+                * reliability
+                * recencyConfidence;
+
+/*
+ * ==================================================
+ * BASE LEARNING CONTRIBUTION
+ * ==================================================
+ *
+ * Maximum base contribution:
+ *
+ * HIGH:
+ *      100
+ *
+ * MEDIUM:
+ *      60
+ *
+ * before reliability/recency adjustment.
+ */
+double baseLearningScore =
+        100.0
+                * effectiveHistoricalConfidence;
+
+/*
+ * ==================================================
+ * REPEATED SUCCESS
+ * ==================================================
+ *
+ * Repeated successful healing strengthens
+ * historical confidence.
+ *
+ * Maximum repeated-success contribution:
+ *      +150
+ */
+double repeatedLearningBonus =
+        Math.min(
+                repeatedSuccesses
+                        * 50.0
+                        * reliability
+                        * confidenceWeight
+                        * recencyConfidence,
+                150.0);
+
+/*
+ * ==================================================
+ * FINAL LEARNING SCORE
+ * ==================================================
+ */
+double exactLearningScore =
+        baseLearningScore
+                + repeatedLearningBonus
+                + recencyBonus;
+
+/*
+ * Learning must remain bounded.
+ *
+ * Learning is supporting evidence.
+ * It can reach a maximum of 300 points.
+ */
+exactLearningScore =
+        Math.max(
+                0.0,
+                Math.min(
+                        exactLearningScore,
+                        300.0));
+   System.out.println(
+        "LEARNING AGGREGATED MATCH | "
+                + candidateType
+                + "="
+                + candidateValue
+                + " | attempts="
+                + matchingAttempts
+                + " | successes="
+                + matchingSuccesses
+                + " | reliability="
+                + reliability
+                + " | avgConfidence="
+                + averageOutcomeConfidence
+                + " | recencyConfidence="
+                + recencyConfidence
+                + " | recencyBonus="
+                + recencyBonus
+                + " | learningScore="
+                + exactLearningScore
+                + " | source="
+                + (collectionMode
+                        ? "COLLECTION"
+                        : "ALL"));
 
     return exactLearningScore;
+}
+
+private double calculateLearningRecencyWeight(
+        LearningRecord record) {
+
+    if (record == null
+            || record.getTimestamp() == null) {
+
+        return 0.0;
+    }
+
+    LocalDateTime timestamp =
+            record.getTimestamp();
+
+    long ageDays =
+            Math.max(
+                    0,
+                    Duration.between(
+                            timestamp,
+                            LocalDateTime.now())
+                            .toDays());
+
+    /*
+     * Exponential decay.
+     *
+     * At the configured half-life,
+     * the learning evidence has 50%
+     * of its original strength.
+     */
+    double weight =
+            Math.pow(
+                    0.5,
+                    ageDays
+                            / LEARNING_HALF_LIFE_DAYS);
+
+    return Math.max(
+            0.0,
+            Math.min(
+                    1.0,
+                    weight));
 }
 private String extractPageObjectClass(
         String pageObjectPath) {
@@ -2899,5 +3061,36 @@ private List<String> extractTextHintsFromFailedLocator(
     }
 
     return values;
+}
+private double normalizeOutcomeConfidence(
+        double outcomeConfidence) {
+
+    if (outcomeConfidence <= 0.0) {
+        return 0.0;
+    }
+
+    /*
+     * LearningRecord currently stores confidence
+     * as a percentage:
+     *
+     * HIGH   = 100
+     * MEDIUM = 50
+     *
+     * Ranking internally works with:
+     *
+     * HIGH   = 1.0
+     * MEDIUM = 0.5
+     */
+    if (outcomeConfidence > 1.0) {
+
+        outcomeConfidence =
+                outcomeConfidence / 100.0;
+    }
+
+    return Math.max(
+            0.0,
+            Math.min(
+                    1.0,
+                    outcomeConfidence));
 }
 }

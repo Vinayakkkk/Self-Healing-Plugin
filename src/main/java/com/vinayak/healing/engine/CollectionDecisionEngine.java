@@ -52,8 +52,8 @@ public class CollectionDecisionEngine {
          *
          * Do NOT treat learning alone as HIGH confidence.
          */
-       boolean learnedCandidate =
-        learningScore >= 1000.0;
+      boolean learnedCandidate =
+        learningScore >= 200.0;
 
         /*
          * ==================================================
@@ -103,8 +103,7 @@ public class CollectionDecisionEngine {
         if (learnedCandidate
         && collectionSize >= 2
         && displayedCount >= 2
-        && uniqueLocator
-        && scoreGap >= 100) {
+        && uniqueLocator) {
 
     return new Result(
             Decision.MEDIUM,

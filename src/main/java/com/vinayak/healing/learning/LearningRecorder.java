@@ -93,6 +93,43 @@ if (!healingAllowed) {
     return false;
 }
 
+/*
+ * ==========================================
+ * CONFIDENCE LEARNING GATE
+ * ==========================================
+ *
+ * MEDIUM and HIGH confidence healing can
+ * become historical learning.
+ *
+ * cacheAllowed is intentionally NOT checked.
+ *
+ * MEDIUM:
+ *     healingAllowed = true
+ *     cacheAllowed    = false
+ *     -> LEARN
+ *
+ * HIGH:
+ *     healingAllowed = true
+ *     cacheAllowed    = true
+ *     -> LEARN
+ *
+ * LOW / REJECT:
+ *     -> DO NOT LEARN
+ */
+String normalizedConfidence =
+        normalize(confidenceLevel);
+
+if (!"HIGH".equalsIgnoreCase(normalizedConfidence)
+        && !"MEDIUM".equalsIgnoreCase(normalizedConfidence)) {
+
+    System.out.println(
+            "LEARNING SKIPPED : confidence level is not trusted."
+                    + " | confidence="
+                    + normalizedConfidence);
+
+    return false;
+}
+
 
         /*
          * ==========================================
