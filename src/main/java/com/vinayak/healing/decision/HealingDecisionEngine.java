@@ -118,7 +118,7 @@ if (occurrenceCount > 1) {
                 validatedCandidate,
                 HealingConfidence.MEDIUM,
                 true,
-                false,
+                true,
                 "Candidate has semantic evidence but locator is not unique");
     }
 
@@ -163,7 +163,7 @@ if (occurrenceCount > 1) {
             validatedCandidate,
             HealingConfidence.MEDIUM,
             true,
-            false,
+            true,
             "Validated unique candidate with strong semantic evidence but weak score separation");
 }
 
@@ -189,7 +189,7 @@ if (occurrenceCount > 1) {
             validatedCandidate,
             HealingConfidence.MEDIUM,
             true,
-            false,
+            true,
             "Validated candidate has supporting evidence but insufficient decision certainty"
                     + " | scoreGap="
                     + scoreGap

@@ -1,5 +1,6 @@
 package com.vinayak.healing.learning;
 
+import java.util.Comparator;
 import java.util.List;
 
 public class LearningEngine {
@@ -7,9 +8,9 @@ public class LearningEngine {
     private final LearningRepository repository;
 
     public LearningEngine() {
-    this.repository =
-            LearningRepository.getInstance();
-}
+        this.repository =
+                LearningRepository.getInstance();
+    }
 
     public LearningEngine(
             LearningRepository repository) {
@@ -43,6 +44,107 @@ public class LearningEngine {
             LearningKey key) {
 
         return repository.find(key);
+    }
+
+    /**
+     * Returns the best historical learning record
+     * for the supplied learning context.
+     *
+     * A learning record is eligible only when:
+     *
+     * - healing was successful
+     * - healing was allowed
+     * - confidence is MEDIUM or HIGH
+     *
+     * Among eligible records, the most reliable record
+     * is selected using:
+     *
+     * 1. outcome confidence
+     * 2. candidate score
+     * 3. recency
+     */
+    public LearningRecord findBestLearning(
+            LearningKey key) {
+
+        if (key == null) {
+            return null;
+        }
+
+        List<LearningRecord> history =
+                repository.find(key);
+
+        if (history == null
+                || history.isEmpty()) {
+
+            return null;
+        }
+
+        return history.stream()
+
+                /*
+                 * Only successful learning can
+                 * participate in future reuse.
+                 */
+                .filter(LearningRecord::isOutcomeSuccess)
+
+                /*
+                 * Respect the original learning
+                 * safety decision.
+                 */
+                .filter(LearningRecord::isHealingAllowed)
+
+                /*
+                 * LOW / UNKNOWN learning must not
+                 * become trusted historical knowledge.
+                 */
+                .filter(record ->
+                        isTrustedConfidence(
+                                record.getConfidenceLevel()))
+
+                /*
+                 * Highest outcome confidence first.
+                 */
+                .max(
+                        Comparator
+                                .comparingDouble(
+                                        LearningRecord::getOutcomeConfidence)
+
+                                /*
+                                 * If outcome confidence is equal,
+                                 * prefer the stronger candidate.
+                                 */
+                                .thenComparingDouble(
+                                        LearningRecord::getCandidateScore)
+
+                                /*
+                                 * If everything else is equal,
+                                 * prefer the newest record.
+                                 */
+                                .thenComparing(
+                                        LearningRecord::getTimestamp,
+                                        Comparator.nullsFirst(
+                                                Comparator.naturalOrder()))
+                )
+
+                .orElse(null);
+    }
+
+    /**
+     * Determines whether a confidence level is
+     * trusted for historical learning reuse.
+     */
+    private boolean isTrustedConfidence(
+            String confidenceLevel) {
+
+        if (confidenceLevel == null) {
+            return false;
+        }
+
+        return "HIGH".equalsIgnoreCase(
+                confidenceLevel.trim())
+
+                || "MEDIUM".equalsIgnoreCase(
+                confidenceLevel.trim());
     }
 
     /**

@@ -3,6 +3,8 @@ import com.vinayak.healing.analytics.HealingAnalytics;
 import com.vinayak.healing.ai.AiModelClient;
 import com.vinayak.healing.ai.AiResponseParser;
 import com.vinayak.healing.ai.CandidatePromptBuilder;
+import java.util.Comparator;
+import java.util.List;
 import com.vinayak.healing.decision.HealingDecision;
 import com.vinayak.healing.decision.HealingDecisionEngine;
 import com.vinayak.healing.ai.LocatorSuggestion;
@@ -13,7 +15,6 @@ import org.openqa.selenium.NoSuchElementException;
 import com.vinayak.healing.validator.CachedLocatorValidator;
 import com.vinayak.healing.learning.LearningKey;
 import com.vinayak.healing.learning.LearningRecord;
-import java.util.List;
 import com.vinayak.healing.dom.XPathFallbackGenerator;
 import com.vinayak.healing.execution.ExecutionAction;
 import com.vinayak.healing.execution.ExecutionTracker;
@@ -41,6 +42,7 @@ import com.vinayak.healing.learning.LearningRecorder;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -55,6 +57,9 @@ import org.openqa.selenium.SearchContext;
 
 
 public class SelfHealingEngine {
+
+        private static final boolean DEBUG = false;
+   
 
         private final HealingPipeline pipeline =
         new HealingPipeline();
@@ -78,12 +83,15 @@ private final FailureContextFactory
         new IframeHealingEngine();
 
 
-        private static final boolean DEBUG = false;
+       
 
 
        private static final ThreadLocal<By>
         lastSuccessfulLocator =
                 new ThreadLocal<>();
+
+                private final ThreadLocal<LearningRecord> lastLearningRecord =
+        new ThreadLocal<>();
 
                 private final CachedLocatorValidator cachedLocatorValidator =
         new CachedLocatorValidator();
@@ -104,6 +112,9 @@ private final FailureContextFactory
 
         private final LearningRecorder learningRecorder =
         new LearningRecorder(learningEngine);
+
+        private final ThreadLocal<LearningRecord> lastUsedLearningRecord =
+        new ThreadLocal<>();
 
         private final CollectionHealingEngine
         collectionHealingEngine =
@@ -296,6 +307,8 @@ if (cached == null) {
                     + cacheKey);
 }
 
+lastLearningRecord.remove();
+
 WebElement learningElement =
         tryLearningHit(
                 driver,
@@ -309,59 +322,76 @@ if (learningElement != null) {
                     - startTime);
 
     String reportAction =
-        context.getFailedAction() == null
-                ? "UNKNOWN"
-                : context.getFailedAction().name();
+            context.getFailedAction() == null
+                    ? "UNKNOWN"
+                    : context.getFailedAction().name();
 
-By learnedLocatorForReport =
-        lastSuccessfulLocator.get();
+    By learnedLocatorForReport =
+            lastSuccessfulLocator.get();
 
-        LearningRecord learningRecord =
+    /*
+     * IMPORTANT:
+     *
+     * tryLearningHit() has already selected the
+     * historical LearningRecord that was actually
+     * used for this healing.
+     *
+     * DO NOT call findLearningRecord() again here.
+     *
+     * A second lookup can return a different/older
+     * record and corrupt the healing report.
+     */
+
+   LearningRecord learningRecord =
         findLearningRecord(
                 context,
                 pageObjectClass);
 
-double reportScore =
-        learningRecord == null
-                ? 0.0
-                : learningRecord.getCandidateScore();
+    double reportScore =
+            learningRecord == null
+                    ? 0.0
+                    : learningRecord.getCandidateScore();
 
-String reportConfidence =
-        learningRecord == null
-                ? "UNKNOWN"
-                : learningRecord.getConfidenceLevel();
+    String reportConfidence =
+            learningRecord == null
+                    ? "UNKNOWN"
+                    : learningRecord.getConfidenceLevel();
 
-                boolean reportHealingAllowed =
-        learningRecord != null
-                && learningRecord.isHealingAllowed();
+    boolean reportHealingAllowed =
+            learningRecord != null
+                    && learningRecord.isHealingAllowed();
 
-boolean reportCacheAllowed =
-        learningRecord != null
-                && learningRecord.isCacheAllowed();
+    boolean reportCacheAllowed =
+            learningRecord != null
+                    && learningRecord.isCacheAllowed();
 
-System.out.println(
-        "[HEALING REPORT DEBUG]"
-                + " source=LEARNING"
-                + " | action=" + reportAction
-                + " | variable=" + context.getVariableName()
-                + " | failed=" + failedLocator
-                + " | healed=" + learnedLocatorForReport);
+    System.out.println(
+            "[HEALING REPORT DEBUG]"
+                    + " source=LEARNING"
+                    + " | action=" + reportAction
+                    + " | variable=" + context.getVariableName()
+                    + " | failed=" + failedLocator
+                    + " | healed=" + learnedLocatorForReport
+                    + " | score=" + reportScore
+                    + " | confidence=" + reportConfidence
+                    + " | healingAllowed=" + reportHealingAllowed
+                    + " | cacheAllowed=" + reportCacheAllowed);
 
-HealingReportManager.logHealing(
-        pageObjectClass,
-        context.getVariableName(),
-        reportAction,
-        expectedIntentName,
-        cacheKey,
-        failedLocator.toString(),
-        learnedLocatorForReport == null
-                ? "UNKNOWN"
-                : learnedLocatorForReport.toString(),
-        reportScore,
-        reportConfidence,
-        reportHealingAllowed,
-        reportCacheAllowed,
-        "LEARNING");
+    HealingReportManager.logHealing(
+            pageObjectClass,
+            context.getVariableName(),
+            reportAction,
+            expectedIntentName,
+            cacheKey,
+            failedLocator.toString(),
+            learnedLocatorForReport == null
+                    ? "UNKNOWN"
+                    : learnedLocatorForReport.toString(),
+            reportScore,
+            reportConfidence,
+            reportHealingAllowed,
+            reportCacheAllowed,
+            "LEARNING");
 
     return learningElement;
 }
@@ -671,7 +701,7 @@ RUNTIME_HEALED_LOCATORS.put(
 
     lastSuccessfulLocator.set(locator);
 
-    learningRecorder.record(
+   learningRecorder.record(
         context,
         pageObjectClass,
         validatedCandidate,
@@ -681,7 +711,9 @@ RUNTIME_HEALED_LOCATORS.put(
         healingDecision.isCacheAllowed(),
         "DIRECT",
         true,
-        60.0);
+        healingDecision.isCacheAllowed()
+                ? 100.0
+                : 80.0);
 
     LocatorSuggestion suggestion =
         CandidateConverter.convert(
@@ -1006,7 +1038,7 @@ learningRecorder.record(
         healedLocator,
         "MEDIUM",
         true,
-        true,
+        false,
         "AI",
         true,
 100.0);
@@ -1137,10 +1169,15 @@ public WebElement heal(
  * It must first pass the same semantic cached-locator
  * validation used by the persistent locator cache.
  */
+
 private WebElement tryLearningHit(
         WebDriver driver,
         FailureContext context,
         String pageObjectClass) {
+
+                 lastUsedLearningRecord.remove();
+
+    
 
     if (driver == null
             || context == null) {
@@ -1189,38 +1226,30 @@ private WebElement tryLearningHit(
         return null;
     }
 
-    /*
-     * Select the strongest successful learning experience.
-     *
-     * Priority:
-     *
-     * 1. Successful outcome
-     * 2. Healing allowed
-     * 3. Cache/reuse allowed
-     * 4. Highest outcome confidence
-     * 5. Highest candidate score
-     * 6. Most recent record
-     */
-    LearningRecord bestRecord =
-            history.stream()
-                    .filter(record ->
-                            record != null
-                                    && record.isOutcomeSuccess())
-                    .filter(LearningRecord::isHealingAllowed)
-                    .filter(LearningRecord::isCacheAllowed)
-                    .max(
-                            java.util.Comparator
-                                    .comparingDouble(
-                                            LearningRecord::getOutcomeConfidence)
-                                    .thenComparingDouble(
-                                            LearningRecord::getCandidateScore)
-                                    .thenComparing(
-                                            LearningRecord::getTimestamp,
-                                            java.util.Comparator
-                                                    .nullsFirst(
-                                                            java.util.Comparator
-                                                                    .naturalOrder())))
-                    .orElse(null);
+   /*
+ * ==========================================
+ * LEARNING SELECTION
+ * ==========================================
+ *
+ * Learning has two levels:
+ *
+ * HIGH / cacheAllowed = true
+ *     -> direct reusable learning
+ *
+ * MEDIUM / cacheAllowed = false
+ *     -> intermediate learning
+ *
+ * Intermediate learning is allowed only when
+ * the previous healing outcome reached the
+ * minimum confidence threshold.
+ *
+ * The learned locator is still validated
+ * against the current DOM before reuse.
+ */
+
+LearningRecord bestRecord =
+        learningEngine.findBestLearning(
+                learningKey);
 
     if (bestRecord == null) {
 
@@ -1232,9 +1261,23 @@ private WebElement tryLearningHit(
 
         return null;
     }
+    lastLearningRecord.set(bestRecord);
 
     HealingLogger.debug(
             "LEARNING RECORD FOUND");
+
+            String learningLevel =
+        bestRecord.isCacheAllowed()
+                ? "HIGH"
+                : "INTERMEDIATE";
+
+HealingLogger.debug(
+        "Learning Level    : "
+                + learningLevel);
+
+HealingLogger.debug(
+        "Cache Allowed     : "
+                + bestRecord.isCacheAllowed());
 
     HealingLogger.debug(
             "Selected Locator : "
@@ -1320,11 +1363,24 @@ private WebElement tryLearningHit(
 
     try {
 
+        HealingLogger.debug(
+        "LEARNING VALIDATION START"
+                + " | locator=" + learnedLocator
+                + " | page=" + pageObjectClass
+                + " | variable=" + context.getVariableName()
+                + " | intent=" + expectedIntent
+                + " | action=" + action);
+
         valid =
                 cachedLocatorValidator.validate(
                         driver,
                         learnedLocator,
                         context);
+
+                        HealingLogger.debug(
+        "LEARNING VALIDATION RESULT"
+                + " | locator=" + learnedLocator
+                + " | valid=" + valid);
 
     } catch (Exception exception) {
 
@@ -1389,7 +1445,13 @@ private WebElement tryLearningHit(
                         + learnedLocator);
 
         HealingLogger.debug(
-                "Learning Source : PREVIOUS_SUCCESS");
+        "Learning Source : PREVIOUS_SUCCESS");
+
+HealingLogger.debug(
+        "Learning Level  : "
+                + (bestRecord.isCacheAllowed()
+                        ? "HIGH"
+                        : "INTERMEDIATE"));
 
         HealingLogger.debug(
                 "Outcome Confidence : "
@@ -1403,9 +1465,13 @@ private WebElement tryLearningHit(
 
         HealingAnalytics.deterministicHeal();
 
-        HealingLogger.debug(
-                "LEARNING HEAL SUCCESS : "
-                        + learnedLocator);
+       HealingLogger.debug(
+        "LEARNING HEAL SUCCESS : "
+                + learnedLocator
+                + " | level="
+                + (bestRecord.isCacheAllowed()
+                        ? "HIGH"
+                        : "INTERMEDIATE"));
 
         return element;
 
@@ -1896,46 +1962,64 @@ private LearningRecord findLearningRecord(
                     context.getFailedLocator());
 
     List<LearningRecord> history =
-            learningEngine
-                    .getRepository()
-                    .find(key);
+            learningEngine.findHistory(key);
 
     if (history == null || history.isEmpty()) {
         return null;
     }
 
-    LearningRecord bestRecord = null;
+    return history.stream()
 
-    for (LearningRecord record : history) {
+            // Never reuse an unsuccessful experience
+            .filter(LearningRecord::isOutcomeSuccess)
 
-        if (record == null) {
-            continue;
-        }
+            // Only trusted learning is eligible
+            .filter(LearningRecord::isHealingAllowed)
 
-        if (!record.isOutcomeSuccess()) {
-            continue;
-        }
+            // HIGH before MEDIUM
+            .sorted(
+                    Comparator
+                            .comparingInt(
+                                    (LearningRecord record) ->
+                                            confidenceWeight(
+                                                    record.getConfidenceLevel()))
+                            .reversed()
 
-        if (!record.isHealingAllowed()) {
-            continue;
-        }
+                            // Higher candidate score first
+                            .thenComparing(
+                                    LearningRecord::getCandidateScore,
+                                    Comparator.reverseOrder())
 
-        if (bestRecord == null) {
-            bestRecord = record;
-            continue;
-        }
+                            // More recent experience first
+                            .thenComparing(
+                                    LearningRecord::getTimestamp,
+                                    Comparator.reverseOrder())
+            )
 
-        /*
-         * Prefer the record with the strongest
-         * historical candidate score.
-         */
-        if (record.getCandidateScore()
-                > bestRecord.getCandidateScore()) {
+            .findFirst()
+            .orElse(null);
+}
+private int confidenceWeight(
+        String confidence) {
 
-            bestRecord = record;
-        }
+    if (confidence == null) {
+        return 0;
     }
 
-    return bestRecord;
+    switch (confidence.trim().toUpperCase()) {
+
+        case "HIGH":
+            return 3;
+
+        case "MEDIUM":
+            return 2;
+
+        case "LOW":
+            return 1;
+
+        case "REJECT":
+        default:
+            return 0;
+    }
 }
 }

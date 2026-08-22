@@ -93,6 +93,7 @@ if (!healingAllowed) {
     return false;
 }
 
+
 /*
  * ==========================================
  * CONFIDENCE LEARNING GATE
@@ -116,14 +117,27 @@ if (!healingAllowed) {
  * LOW / REJECT:
  *     -> DO NOT LEARN
  */
+
 String normalizedConfidence =
         normalize(confidenceLevel);
 
+/*
+ * ==========================================
+ * CONFIDENCE LEARNING GATE
+ * ==========================================
+ *
+ * HIGH   -> LEARN
+ * MEDIUM -> LEARN
+ * LOW    -> DO NOT LEARN
+ * REJECT -> DO NOT LEARN
+ *
+ * cacheAllowed does NOT control learning.
+ */
 if (!"HIGH".equalsIgnoreCase(normalizedConfidence)
         && !"MEDIUM".equalsIgnoreCase(normalizedConfidence)) {
 
     System.out.println(
-            "LEARNING SKIPPED : confidence level is not trusted."
+            "LEARNING SKIPPED : confidence level not learnable."
                     + " | confidence="
                     + normalizedConfidence);
 

@@ -9,6 +9,7 @@ import com.vinayak.healing.learning.LearningRecorder;
 import com.vinayak.healing.model.FailureContext;
 import com.vinayak.healing.model.LocatorCandidate;
 import com.vinayak.healing.ranking.CandidateRanker;
+import com.vinayak.healing.report.HealingReportManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -405,7 +406,7 @@ CollectionDecisionEngine.Result decision =
                     extractPageObjectClass(
                             context.getPageObjectPath());
 
-         boolean learningRecorded =
+boolean learningRecorded =
         learningRecorder.record(
                 context,
                 pageObjectClass,
@@ -423,6 +424,53 @@ if (learningRecorded) {
 
     System.out.println(
             "COLLECTION LEARNING RECORDED");
+
+    /*
+     * =====================================================
+     * HEALING REPORT
+     * =====================================================
+     *
+     * Collection healing is also a healing event.
+     * Therefore it must appear in the enterprise
+     * healing report in addition to the learning store.
+     */
+
+    String expectedIntent =
+            context.getExpectedIntent() == null
+                    ? "UNKNOWN"
+                    : context.getExpectedIntent().name();
+
+    String action =
+            context.getFailedAction() == null
+                    ? "UNKNOWN"
+                    : context.getFailedAction().name();
+
+    String cacheKey =
+            pageObjectClass
+                    + "|"
+                    + context.getVariableName()
+                    + "|"
+                    + expectedIntent
+                    + "|"
+                    + context.getFailedLocator();
+
+    HealingReportManager.logHealing(
+            pageObjectClass,
+            context.getVariableName(),
+            action,
+            expectedIntent,
+            cacheKey,
+            context.getFailedLocator().toString(),
+            bestMatch.locator.toString(),
+            bestMatch.collectionScore,
+            confidenceLevel(
+                    decision.confidence()),
+            true,
+            false,
+            "COLLECTION");
+
+    System.out.println(
+            "COLLECTION HEALING REPORT RECORDED");
 
 } else {
 

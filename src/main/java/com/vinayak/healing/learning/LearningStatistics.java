@@ -242,6 +242,17 @@ public class LearningStatistics {
     }
 
     // =====================================================
+// LOCATOR STATISTICS MODEL
+// =====================================================
+
+public enum LearningMaturity {
+    NEW,
+    OBSERVED,
+    REPEATED,
+    STABLE
+}
+
+    // =====================================================
     // LOCATOR STATISTICS MODEL
     // =====================================================
 
@@ -376,6 +387,33 @@ public class LearningStatistics {
         }
 
         /**
+ * Returns the current learning maturity of this locator.
+ *
+ * Maturity is based on successful historical outcomes.
+ *
+ * 0 successes  -> NEW
+ * 1 success    -> OBSERVED
+ * 2 successes  -> REPEATED
+ * 3+ successes -> STABLE
+ */
+public LearningMaturity getLearningMaturity() {
+
+    if (successCount == 0) {
+        return LearningMaturity.NEW;
+    }
+
+    if (successCount == 1) {
+        return LearningMaturity.OBSERVED;
+    }
+
+    if (successCount == 2) {
+        return LearningMaturity.REPEATED;
+    }
+
+    return LearningMaturity.STABLE;
+}
+
+        /**
          * Returns total candidate score accumulated
          * for this locator.
          */
@@ -408,6 +446,8 @@ public class LearningStatistics {
                     getSuccessRate() +
                     ", reliability=" +
                     getReliability() +
+                    ", learningMaturity=" +
+getLearningMaturity() +
                     ", averageScore=" +
                     getAverageScore() +
                     ", averageOutcomeConfidence=" +
