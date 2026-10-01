@@ -1,4 +1,4 @@
-# 🚀 Selenium Self-Healing Plugin
+# 🚀 Vinayak Selenium Self-Healing Plugin
 
 **Enterprise-grade Selenium WebDriver self-healing for Java automation frameworks.**
 
@@ -1413,3 +1413,118 @@ Can the validated decision be learned?
 The ultimate objective is:
 
 > **Recover automation from locator changes while preserving semantic correctness and preventing wrong-element execution.**
+
+
+---
+
+# 🖥️ Windows, macOS, and Linux Setup
+
+This repository is the **release/distribution repository**. It contains the packaged plugin JAR, documentation, and an OrangeHRM consumer example. It is not the plugin source-code project, so the repository root does not contain a `pom.xml`.
+
+## Choose how you want to use the project
+
+- **Test or use the released plugin:** download the repository ZIP or clone this repository, then follow the steps below.
+- **Contribute to plugin implementation:** use the separate plugin source repository. The distribution repository is intended for releases, documentation, and consumer examples.
+
+## Option A — Clone with Git (recommended)
+
+Cloning is recommended if you want to pull updates, create branches, commit changes, or contribute to the repository.
+
+### Windows (PowerShell)
+
+```powershell
+cd C:\Users\Dell\Documents
+git clone https://github.com/Vinayakkkk/selenium-self-healing.git
+cd selenium-self-healing
+```
+
+### macOS / Linux (Terminal)
+
+```bash
+cd ~/Documents
+git clone https://github.com/Vinayakkkk/selenium-self-healing.git
+cd selenium-self-healing
+```
+
+You can open the folder in VS Code with:
+
+```bash
+code .
+```
+
+The default Git branch is named `main`. That is normal; it is the branch name, not a separate version of the plugin.
+
+## Option B — Download ZIP
+
+If you choose **Code → Download ZIP** on GitHub, extract the ZIP and open the extracted folder in VS Code.
+
+GitHub may name the extracted directory with a `-main` suffix, such as `selenium-self-healing-main`. This is just the extracted folder name. It does not mean Maven should be run from that folder, and a ZIP download does not provide Git history or remote tracking.
+
+## Install the released JAR
+
+Run the following from the distribution repository root, after confirming that the release JAR exists at the shown relative path.
+
+### Windows (PowerShell)
+
+```powershell
+mvn install:install-file "-Dfile=releases/v2.1.0/vinayak-healing-plugin-2.1.0.jar" "-DgroupId=com.vinayak" "-DartifactId=vinayak-healing-plugin" "-Dversion=2.1.0" "-Dpackaging=maven-plugin"
+```
+
+PowerShell does not use the Unix `\` line-continuation character. Keep this command on one line, or use PowerShell's backtick for line continuation.
+
+### macOS / Linux (Terminal)
+
+```bash
+mvn install:install-file \
+  -Dfile=releases/v2.1.0/vinayak-healing-plugin-2.1.0.jar \
+  -DgroupId=com.vinayak \
+  -DartifactId=vinayak-healing-plugin \
+  -Dversion=2.1.0 \
+  -Dpackaging=maven-plugin
+```
+
+If you saved the JAR elsewhere, replace the `-Dfile` value with its actual full path. Do not use the placeholder `/path/to/...` literally.
+
+## Run the OrangeHRM consumer example
+
+The distribution repository root does not contain a Maven project file. The example's `pom.xml` is inside `examples/orangehrm`.
+
+### Windows (PowerShell)
+
+```powershell
+cd examples\orangehrm
+mvn clean test
+```
+
+### macOS / Linux (Terminal)
+
+```bash
+cd examples/orangehrm
+mvn clean test
+```
+
+Before running, ensure Java 21 and Maven are installed. If AI is enabled in `healing.properties`, the configured Ollama service and model must also be available.
+
+## Check your current directory if Maven says no POM was found
+
+Maven commands such as `mvn clean test` must run in a directory containing a `pom.xml`.
+
+From the distribution repository root, list the example directory:
+
+```powershell
+Get-ChildItem examples
+```
+
+Or find the POM on Windows:
+
+```powershell
+Get-ChildItem -Path . -Filter pom.xml -Recurse | Select-Object -ExpandProperty FullName
+```
+
+On macOS / Linux:
+
+```bash
+find . -name pom.xml
+```
+
+Then change into the directory containing the intended `pom.xml` before running Maven.
