@@ -1,4 +1,4 @@
-# 🚀 Vinayak Selenium Self-Healing Plugin
+# 🚀 Selenium Self-Healing Plugin
 
 **Enterprise-grade Selenium WebDriver self-healing for Java automation frameworks.**
 
