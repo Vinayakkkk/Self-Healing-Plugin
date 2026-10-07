@@ -1,0 +1,29 @@
+[ {
+  "pageObjectClass" : "LoginPage",
+  "variableName" : "username",
+  "action" : "SEND_KEYS",
+  "expectedIntent" : "INPUT",
+  "cacheKey" : "LoginPage|username|INPUT|By.name: us",
+  "failedLocator" : "By.name: us",
+  "healedLocator" : "By.name: username",
+  "score" : 10922.25,
+  "confidenceLevel" : "HIGH",
+  "healingAllowed" : true,
+  "cacheAllowed" : true,
+  "timestamp" : "2026-10-01T21:00:40.352782",
+  "source" : "DOM"
+}, {
+  "pageObjectClass" : "LoginPage",
+  "variableName" : "password",
+  "action" : "SEND_KEYS",
+  "expectedIntent" : "INPUT",
+  "cacheKey" : "LoginPage|password|INPUT|By.name: pas",
+  "failedLocator" : "By.name: pas",
+  "healedLocator" : "By.name: password",
+  "score" : 11722.25,
+  "confidenceLevel" : "HIGH",
+  "healingAllowed" : true,
+  "cacheAllowed" : true,
+  "timestamp" : "2026-10-01T21:00:41.784435",
+  "source" : "DOM"
+} ]

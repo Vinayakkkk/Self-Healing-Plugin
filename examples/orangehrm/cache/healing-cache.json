@@ -1,0 +1,18 @@
+{
+  "LoginPage|password|INPUT|By.name: pas" : {
+    "locatorType" : "name",
+    "locatorValue" : "password",
+    "confidence" : 99.0,
+    "generatedLocator" : false,
+    "generationStrategy" : null,
+    "generationConfidence" : 0.0
+  },
+  "LoginPage|username|INPUT|By.name: us" : {
+    "locatorType" : "name",
+    "locatorValue" : "username",
+    "confidence" : 99.0,
+    "generatedLocator" : false,
+    "generationStrategy" : null,
+    "generationConfidence" : 0.0
+  }
+}

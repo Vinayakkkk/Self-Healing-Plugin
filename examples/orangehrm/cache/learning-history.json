@@ -1,0 +1,39 @@
+[ {
+  "learningKey" : {
+    "pageObjectClass" : "LoginPage",
+    "variableName" : "username",
+    "expectedIntent" : "INPUT",
+    "action" : "SEND_KEYS",
+    "failedLocator" : "By.name: us"
+  },
+  "selectedLocator" : "By.name: username",
+  "selectedLocatorType" : "name",
+  "selectedLocatorValue" : "username",
+  "candidateScore" : 10922.25,
+  "healingSource" : "DOM",
+  "confidenceLevel" : "HIGH",
+  "healingAllowed" : true,
+  "cacheAllowed" : true,
+  "outcomeSuccess" : true,
+  "outcomeConfidence" : 99.0,
+  "timestamp" : [ 2026, 10, 1, 21, 0, 41, 786376000 ]
+}, {
+  "learningKey" : {
+    "pageObjectClass" : "LoginPage",
+    "variableName" : "password",
+    "expectedIntent" : "INPUT",
+    "action" : "SEND_KEYS",
+    "failedLocator" : "By.name: pas"
+  },
+  "selectedLocator" : "By.name: password",
+  "selectedLocatorType" : "name",
+  "selectedLocatorValue" : "password",
+  "candidateScore" : 11722.25,
+  "healingSource" : "DOM",
+  "confidenceLevel" : "HIGH",
+  "healingAllowed" : true,
+  "cacheAllowed" : true,
+  "outcomeSuccess" : true,
+  "outcomeConfidence" : 99.0,
+  "timestamp" : [ 2026, 10, 1, 21, 0, 41, 784630000 ]
+} ]

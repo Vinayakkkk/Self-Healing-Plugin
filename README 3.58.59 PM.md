@@ -1,127 +1,116 @@
-# 🚀 Vinayak Selenium Self-Healing Plugin
+# 🚀 Selenium Self-Healing Plugin
 
-**Enterprise-grade Selenium WebDriver self-healing for Java automation
-frameworks.**
+**Enterprise-grade Selenium WebDriver self-healing for Java automation frameworks.**
 
-Vinayak Selenium Self-Healing Plugin automatically detects broken
-Selenium locators at runtime, understands the intended element,
-discovers replacement candidates from the live DOM, validates those
-candidates through multiple safety gates, selects a mathematically
-supported recovery, executes the original Selenium action, and records
-the healing result for future runs.
+Vinayak Selenium Self-Healing Plugin automatically detects broken Selenium locators at runtime, understands the intended element, discovers replacement candidates from the live DOM, validates those candidates through multiple safety gates, selects a mathematically supported recovery, executes the original Selenium action, and records the healing result for future runs.
 
-> **Current Version: v2.2.0**
+> **Current Version: v2.1.0**
 
-------------------------------------------------------------------------
+---
 
 # 📌 What Is This?
 
 Modern web applications frequently change:
 
--   `id`
--   `name`
--   `class`
--   `placeholder`
--   XPath structure
--   DOM hierarchy
--   labels
--   element attributes
--   component structure
+- `id`
+- `name`
+- `class`
+- `placeholder`
+- XPath structure
+- DOM hierarchy
+- labels
+- element attributes
+- component structure
 
-A Selenium test can therefore fail even though the application
-functionality is still correct.
+A Selenium test can therefore fail even though the application functionality is still correct.
 
 For example:
 
-``` java
+```java
 private final By username = By.name("old_username");
 ```
 
 The application changes the element to:
 
-``` html
+```html
 <input name="username" placeholder="Username" type="text">
 ```
 
 Traditional Selenium automation fails because:
 
-``` java
+```java
 driver.findElement(By.name("old_username"));
 ```
 
 can no longer locate the element.
 
-The Self-Healing Plugin intercepts the failure and attempts to recover
-the intended element automatically.
+The Self-Healing Plugin intercepts the failure and attempts to recover the intended element automatically.
 
-------------------------------------------------------------------------
+---
 
 # 🎯 Core Goal
 
 The framework is designed around one principle:
 
-> **A locator failure should be treated as a framework capability
-> problem, not immediately as a test-maintenance problem.**
+> **A locator failure should be treated as a framework capability problem, not immediately as a test-maintenance problem.**
 
 The plugin attempts to determine:
 
-``` text
+```text
 What element was the test trying to interact with?
 ```
 
 rather than simply asking:
 
-``` text
+```text
 Which element can I find?
 ```
 
-This distinction is important because a page can contain multiple
-elements that technically satisfy the same action.
+This distinction is important because a page can contain multiple elements that technically satisfy the same action.
 
 The framework therefore combines:
 
--   source-code context
--   Page Object variable names
--   Selenium action
--   expected intent
--   failed locator identity
--   live DOM structure
--   element attributes
--   labels
--   element type
--   physical uniqueness
--   candidate scoring
--   semantic validation
--   safety boundaries
--   optional AI assistance
--   cache
--   learning history
--   analytics
+- source-code context
+- Page Object variable names
+- Selenium action
+- expected intent
+- failed locator identity
+- live DOM structure
+- element attributes
+- labels
+- element type
+- physical uniqueness
+- candidate scoring
+- semantic validation
+- safety boundaries
+- optional AI assistance
+- cache
+- learning history
+- analytics
 
-------------------------------------------------------------------------
+---
 
 # ✨ Key Features
 
 ## 🔹 Automatic Runtime Healing
 
-The plugin operates through the Java Agent and intercepts Selenium
-execution without requiring test code to use a custom WebDriver.
+The plugin operates through the Java Agent and intercepts Selenium execution without requiring test code to use a custom WebDriver.
 
 Your application continues using:
 
-``` java
+```java
 WebDriver driver = new ChromeDriver();
 ```
 
 and:
 
-``` java
+```java
 driver.findElement(locator).click();
 ```
 
 The healing framework operates underneath the normal Selenium API.
 
-------------------------------------------------------------------------
+---
 
 ## 🔹 Normal Selenium API
 
@@ -129,20 +118,20 @@ No special driver is required in your test project.
 
 Use:
 
-``` java
+```java
 WebDriver driver = new ChromeDriver();
 
 driver.findElement(By.name("username"))
       .sendKeys("Admin");
 ```
 
-The standard v2.2.0 workflow does not require:
+The standard v2.1.0 workflow does not require:
 
-``` java
+```java
 new HealingWebDriver(...)
 ```
 
-------------------------------------------------------------------------
+---
 
 ## 🔹 Action-Aware Healing
 
@@ -150,7 +139,7 @@ The framework understands the Selenium action involved in the failure.
 
 Examples:
 
-``` text
+```text
 CLICK
 SEND_KEYS
 CLEAR
@@ -162,40 +151,39 @@ The healing context carries the action throughout the pipeline.
 
 Example:
 
-``` text
+```text
 Variable      = username
 Action        = SEND_KEYS
 Intent        = INPUT
 ```
 
-------------------------------------------------------------------------
+---
 
 ## 🔹 Semantic Identity Validation
 
-The framework does not simply select the first element that matches the
-expected HTML tag.
+The framework does not simply select the first element that matches the expected HTML tag.
 
 If the failed element represents:
 
-``` text
+```text
 username
 ```
 
 the framework should not accidentally recover:
 
-``` text
+```text
 password
 ```
 
 even if both are:
 
-``` html
+```html
 <input>
 ```
 
 Example:
 
-``` text
+```text
 Expected identity:
 username
 
@@ -206,7 +194,7 @@ Result:
 REJECT
 ```
 
-------------------------------------------------------------------------
+---
 
 ## 🔹 Physical Uniqueness Validation
 
@@ -214,26 +202,24 @@ A candidate must also be physically valid in the current DOM.
 
 The framework evaluates:
 
--   occurrence count
--   uniqueness
--   visibility
--   enabled state
--   element type
--   structural validity
+- occurrence count
+- uniqueness
+- visibility
+- enabled state
+- element type
+- structural validity
 
-A locator matching multiple unrelated elements is not automatically
-considered safe.
+A locator matching multiple unrelated elements is not automatically considered safe.
 
-------------------------------------------------------------------------
+---
 
 ## 🔹 Deterministic Candidate Generation
 
-The framework scans the live DOM and generates possible replacement
-locators.
+The framework scans the live DOM and generates possible replacement locators.
 
 Examples include:
 
-``` text
+```text
 id
 name
 class
@@ -246,7 +232,7 @@ attribute-based locators
 
 The generated candidates are then ranked.
 
-------------------------------------------------------------------------
+---
 
 ## 🔹 Mathematical Candidate Ranking
 
@@ -254,7 +240,7 @@ Candidates are not selected randomly.
 
 The ranking system considers multiple evidence categories:
 
-``` text
+```text
 Intent
 Identity
 Stability
@@ -266,7 +252,7 @@ Semantic evidence
 
 The actual score is calculated by the framework's ranking pipeline.
 
-------------------------------------------------------------------------
+---
 
 # 🤖 AI-Assisted Healing
 
@@ -278,12 +264,11 @@ AI does not directly receive permission to execute arbitrary locators.
 
 Instead, AI can help identify a candidate or candidate index.
 
-The resulting candidate must still pass the framework's normal
-validation and safety boundaries.
+The resulting candidate must still pass the framework's normal validation and safety boundaries.
 
 Conceptually:
 
-``` text
+```text
 AI
  │
  ▼
@@ -302,7 +287,7 @@ Deterministic validation
 
 AI therefore does not bypass the safety system.
 
-------------------------------------------------------------------------
+---
 
 # 🧠 Persistent Learning
 
@@ -310,7 +295,7 @@ Successful healing decisions can be stored locally.
 
 The framework maintains information such as:
 
-``` text
+```text
 Page Object
 Variable
 Action
@@ -321,7 +306,7 @@ Recovered Locator
 
 Example:
 
-``` text
+```text
 LoginPage
 username
 SEND_KEYS
@@ -331,58 +316,55 @@ By.name: old_username
 By.name: username
 ```
 
-Future executions can use the stored healing decision instead of
-repeating the complete discovery process.
+Future executions can use the stored healing decision instead of repeating the complete discovery process.
 
-------------------------------------------------------------------------
+---
 
 # ⚡ Locator Cache
 
 Successful healing decisions are persisted to:
 
-``` text
+```text
 cache/healing-cache.json
 ```
 
 The cache key includes important execution identity such as:
 
-``` text
+```text
 Page Object class
 Variable name
 Expected intent
 Failed locator
 ```
 
-This prevents unrelated Page Objects or variables from accidentally
-sharing a healing decision.
+This prevents unrelated Page Objects or variables from accidentally sharing a healing decision.
 
-------------------------------------------------------------------------
+---
 
 # 📊 Healing Reports
 
 The framework generates healing information including:
 
--   failed locator
--   healed locator
--   Page Object
--   variable
--   action
--   intent
--   healing source
--   confidence
--   candidate score
--   validation result
+- failed locator
+- healed locator
+- Page Object
+- variable
+- action
+- intent
+- healing source
+- confidence
+- candidate score
+- validation result
 
-Reports can be used to understand what the framework healed during test
-execution.
+Reports can be used to understand what the framework healed during test execution.
 
-------------------------------------------------------------------------
+---
 
 # 🏗 Architecture
 
 The framework is organized into eight major layers.
 
-``` text
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                 1. UNIVERSAL ENTRY POINTS                  │
 │                                                             │
@@ -443,19 +425,19 @@ The framework is organized into eight major layers.
 └────────────────────────────┘ └──────────────────────────────┘
 ```
 
-------------------------------------------------------------------------
+---
 
 # 🔍 Detailed Healing Flow
 
 Suppose the Page Object contains:
 
-``` java
+```java
 private final By username = By.name("old_username");
 ```
 
 and the test executes:
 
-``` java
+```java
 driver.findElement(username).sendKeys("Admin");
 ```
 
@@ -463,46 +445,45 @@ The browser application has changed the locator.
 
 The framework follows this process.
 
-------------------------------------------------------------------------
+---
 
-## Step 1 --- Selenium Operation
+## Step 1 — Selenium Operation
 
 The application executes normal Selenium code:
 
-``` java
+```java
 driver.findElement(username).sendKeys("Admin");
 ```
 
 No special API is required.
 
-## Step 2 --- Failure Detection
+## Step 2 — Failure Detection
 
-Selenium reports that the original locator cannot resolve the intended
-element.
+Selenium reports that the original locator cannot resolve the intended element.
 
 The framework captures the failure.
 
 Example:
 
-``` text
+```text
 Failed Locator:
 By.name: old_username
 ```
 
-## Step 3 --- Action Context
+## Step 3 — Action Context
 
 The framework determines the operation:
 
-``` text
+```text
 Action:
 SEND_KEYS
 ```
 
-## Step 4 --- Intent Resolution
+## Step 4 — Intent Resolution
 
 The framework determines the expected element purpose:
 
-``` text
+```text
 Variable:
 username
 
@@ -510,30 +491,29 @@ Intent:
 INPUT
 ```
 
-------------------------------------------------------------------------
+---
 
-## Step 5 --- Source Context Analysis
+## Step 5 — Source Context Analysis
 
-The framework can use Page Object information to understand the failed
-element.
+The framework can use Page Object information to understand the failed element.
 
 Example:
 
-``` java
+```java
 private final By username = ...
 ```
 
 The variable name `username` provides semantic information.
 
-------------------------------------------------------------------------
+---
 
-## Step 6 --- Live DOM Scan
+## Step 6 — Live DOM Scan
 
 The framework obtains the current page DOM and generates candidates.
 
 For example:
 
-``` text
+```text
 name=username
 placeholder=Username
 label-based XPath
@@ -546,15 +526,15 @@ At this stage, these are only candidates.
 
 They are not automatically trusted.
 
-------------------------------------------------------------------------
+---
 
-## Step 7 --- Candidate Ranking
+## Step 7 — Candidate Ranking
 
 Each candidate is evaluated using multiple evidence sources.
 
 Example:
 
-``` text
+```text
 Candidate: name=username
 
 Intent Match        ✓
@@ -567,7 +547,7 @@ Stable Attribute    ✓
 
 Another candidate:
 
-``` text
+```text
 Candidate: name=password
 
 Intent Match        ✓
@@ -575,50 +555,42 @@ Variable Match      ✗
 Identity Match      ✗
 ```
 
-The second candidate can therefore be rejected by the semantic safety
-boundary.
+The second candidate can therefore be rejected by the semantic safety boundary.
 
-------------------------------------------------------------------------
+---
 
-## Step 8 --- Safety Validation
+## Step 8 — Safety Validation
 
 Before a candidate is accepted, the framework validates:
 
 ### Identity
-
 Does the candidate represent the same intended element?
 
 ### Intent
-
 Does the candidate support the requested Selenium operation?
 
 ### Physical uniqueness
-
 Does the locator identify the expected number of elements?
 
 ### Visibility
-
 Is the element usable?
 
 ### Enabled state
-
 Can the requested operation actually be performed?
 
 ### Semantic firewall
-
 Does the candidate share meaningful identity with the failed element?
 
 ### Hard identity gate
-
 Does the candidate provide sufficient identity evidence?
 
-------------------------------------------------------------------------
+---
 
-## Step 9 --- Candidate Acceptance
+## Step 9 — Candidate Acceptance
 
 After all safety checks pass:
 
-``` text
+```text
 Failed:
 By.name: old_username
 
@@ -626,34 +598,33 @@ Recovered:
 By.name: username
 ```
 
-------------------------------------------------------------------------
+---
 
-## Step 10 --- Runtime Execution
+## Step 10 — Runtime Execution
 
-The framework maps the physical Selenium element and executes the
-original action.
+The framework maps the physical Selenium element and executes the original action.
 
 Example:
 
-``` text
+```text
 SEND_KEYS
 ```
 
 continues against the validated replacement element.
 
-------------------------------------------------------------------------
+---
 
-## Step 11 --- Cache
+## Step 11 — Cache
 
 The validated decision can be stored:
 
-``` text
+```text
 healing-cache.json
 ```
 
 Example:
 
-``` text
+```text
 LoginPage
 username
 INPUT
@@ -662,23 +633,23 @@ By.name: old_username
 By.name: username
 ```
 
-------------------------------------------------------------------------
+---
 
-## Step 12 --- Learning
+## Step 12 — Learning
 
 The successful decision is recorded in learning history.
 
 Future executions can benefit from previous validated decisions.
 
-------------------------------------------------------------------------
+---
 
-## Step 13 --- Reporting
+## Step 13 — Reporting
 
 The healing event is written to the report system.
 
 The report can contain:
 
-``` text
+```text
 Page Object
 Variable
 Action
@@ -690,115 +661,107 @@ Confidence
 Healing source
 ```
 
-------------------------------------------------------------------------
+---
 
 # 🔐 Safety Philosophy
 
-Self-healing is powerful, but blindly changing a locator can be
-dangerous.
+Self-healing is powerful, but blindly changing a locator can be dangerous.
 
-A test that passes against the wrong element can be worse than a failed
-test.
+A test that passes against the wrong element can be worse than a failed test.
 
 Therefore:
 
-> **A candidate must be semantically and physically validated before it
-> can be executed.**
+> **A candidate must be semantically and physically validated before it can be executed.**
 
 The framework should prefer:
 
-``` text
+```text
 SAFE FAILURE
 ```
 
 over:
 
-``` text
+```text
 WRONG ELEMENT SUCCESS
 ```
 
-------------------------------------------------------------------------
+---
 
 # ⚙️ Installation
 
 ## Prerequisites
 
-The validated v2.2.0 distribution uses:
+The validated v2.1.0 distribution uses:
 
--   Java 21
--   Maven
--   Selenium WebDriver
--   TestNG or another compatible test framework
--   Chrome/Chromedriver or another supported Selenium browser
--   Optional: Ollama for AI-assisted healing
+- Java 21
+- Maven
+- Selenium WebDriver
+- TestNG or another compatible test framework
+- Chrome/Chromedriver or another supported Selenium browser
+- Optional: Ollama for AI-assisted healing
 
-------------------------------------------------------------------------
+---
 
-## Step 1 --- Download the Release
+## Step 1 — Download the Release
 
 Download:
 
-``` text
-vinayak-healing-plugin-2.2.0.jar
+```text
+vinayak-healing-plugin-2.1.0.jar
 ```
 
 from:
 
-``` text
-releases/v2.2.0/
+```text
+releases/v2.1.0/
 ```
 
 The release also contains:
 
-``` text
-vinayak-healing-plugin-2.2.0.jar.sha256
+```text
+vinayak-healing-plugin-2.1.0.jar.sha256
 ```
 
-------------------------------------------------------------------------
+---
 
-## Step 2 --- Verify the JAR
+## Step 2 — Verify the JAR
 
-SHA256 for the v2.2.0 artifact:
+SHA256 for the validated v2.1.0 artifact:
 
-Generate it from the exact release JAR with:
-
-``` bash
-shasum -a 256 vinayak-healing-plugin-2.2.0.jar
+```text
+db75596a11f9bfe9f99aa358bc2f3e10436dbd37c65be2670b8947f2951f8748
 ```
-
-The generated SHA256 value must match
-`releases/v2.2.0/vinayak-healing-plugin-2.2.0.jar.sha256`.
 
 On macOS/Linux:
 
-``` bash
-shasum -a 256 vinayak-healing-plugin-2.2.0.jar
+```bash
+shasum -a 256 vinayak-healing-plugin-2.1.0.jar
 ```
 
 The generated checksum should match the published checksum.
 
-------------------------------------------------------------------------
+---
 
-## Step 3 --- Install the Plugin JAR
+## Step 3 — Install the Plugin JAR
 
 Install it into your local Maven repository:
 
-``` bash
+```bash
 mvn install:install-file \
-  -Dfile=/path/to/vinayak-healing-plugin-2.2.0.jar \
+  -Dfile=/path/to/vinayak-healing-plugin-2.1.0.jar \
   -DgroupId=com.vinayak \
   -DartifactId=vinayak-healing-plugin \
   -Dversion=2.1.0 \
   -Dpackaging=maven-plugin
 ```
 
-------------------------------------------------------------------------
+---
 
-## Step 4 --- Configure Maven
+## Step 4 — Configure Maven
 
 Add the plugin to your project's `pom.xml`:
 
-``` xml
+```xml
 <build>
     <plugins>
 
@@ -820,22 +783,21 @@ Add the plugin to your project's `pom.xml`:
 </build>
 ```
 
-The `setup` goal prepares the runtime environment and configures the
-Java Agent.
+The `setup` goal prepares the runtime environment and configures the Java Agent.
 
-------------------------------------------------------------------------
+---
 
-## Step 5 --- Add `healing.properties`
+## Step 5 — Add `healing.properties`
 
 Create:
 
-``` text
+```text
 src/test/resources/healing.properties
 ```
 
 Use:
 
-``` properties
+```properties
 # ==========================================
 # Vinayak AI Self-Healing Configuration
 # ==========================================
@@ -860,13 +822,13 @@ healing.source.repair.enabled=false
 
 `healing.properties` is required by the framework configuration.
 
-------------------------------------------------------------------------
+---
 
-## Step 6 --- Optional AI Configuration
+## Step 6 — Optional AI Configuration
 
 If AI-assisted healing is enabled:
 
-``` properties
+```properties
 healing.ai.enabled=true
 ```
 
@@ -874,7 +836,7 @@ the configured AI provider must be available.
 
 The default example configuration uses:
 
-``` text
+```text
 Host:
 http://localhost:11434
 
@@ -884,18 +846,17 @@ qwen2.5-coder:1.5b
 
 This configuration is intended for a local Ollama installation.
 
-AI suggestions remain subject to the framework's safety and validation
-boundaries.
+AI suggestions remain subject to the framework's safety and validation boundaries.
 
-------------------------------------------------------------------------
+---
 
-## Step 7 --- Use Normal Selenium
+## Step 7 — Use Normal Selenium
 
 You do **not** need to replace your Selenium WebDriver.
 
 Use:
 
-``` java
+```java
 WebDriver driver = new ChromeDriver();
 
 driver.get("https://example.com");
@@ -903,18 +864,18 @@ driver.get("https://example.com");
 
 and normal Selenium operations:
 
-``` java
+```java
 driver.findElement(By.name("username"))
       .sendKeys("Admin");
 ```
 
 The Java Agent handles the healing infrastructure.
 
-------------------------------------------------------------------------
+---
 
 # 🏗 Page Object Example
 
-``` java
+```java
 package pages;
 
 import org.openqa.selenium.By;
@@ -953,11 +914,11 @@ public class LoginPage {
 }
 ```
 
-------------------------------------------------------------------------
+---
 
 # 🧪 Test Example
 
-``` java
+```java
 package tests;
 
 import org.openqa.selenium.WebDriver;
@@ -1000,13 +961,13 @@ public class LoginTest {
 }
 ```
 
-------------------------------------------------------------------------
+---
 
 # ▶️ Run the Test
 
 From the project root:
 
-``` bash
+```bash
 mvn clean test
 ```
 
@@ -1014,13 +975,13 @@ The Maven plugin executes the setup phase and attaches the Java Agent.
 
 The Selenium test then runs normally.
 
-------------------------------------------------------------------------
+---
 
 # 🧪 Verified Example
 
 The repository contains an OrangeHRM example:
 
-``` text
+```text
 examples/orangehrm/
 ├── pom.xml
 └── src/
@@ -1042,7 +1003,7 @@ The distribution JAR has been validated using this example.
 
 Successful validation:
 
-``` text
+```text
 Tests run: 1
 Failures: 0
 Errors: 0
@@ -1051,13 +1012,13 @@ Skipped: 0
 BUILD SUCCESS
 ```
 
-------------------------------------------------------------------------
+---
 
 # 📁 Runtime Output
 
 During execution the framework can create:
 
-``` text
+```text
 cache/
 ├── healing-cache.json
 └── learning-history.json
@@ -1065,20 +1026,19 @@ cache/
 
 and:
 
-``` text
+```text
 reports/
 ├── healing-report-*.json
 └── healing-dashboard.html
 ```
 
-These are runtime-generated files and should generally not be committed
-to source control.
+These are runtime-generated files and should generally not be committed to source control.
 
-------------------------------------------------------------------------
+---
 
 # 🔄 Complete Runtime Pipeline
 
-``` text
+```text
                  Selenium Test
                        │
                        ▼
@@ -1140,7 +1100,7 @@ to source control.
                   Cache                Reports
 ```
 
-------------------------------------------------------------------------
+---
 
 # 🛡️ Safety Boundaries
 
@@ -1174,35 +1134,31 @@ AI suggestions are still subject to deterministic validation.
 
 Source-code repair is disabled by default:
 
-``` properties
+```properties
 healing.source.repair.enabled=false
 ```
 
-------------------------------------------------------------------------
+---
 
 # 📝 Source Code Repair
 
-v2.2.0 contains source-repair capabilities, but they are controlled
-through configuration.
+v2.1.0 contains source-repair capabilities, but they are controlled through configuration.
 
 Default:
 
-``` properties
+```properties
 healing.source.repair.enabled=false
 ```
 
-When enabled intentionally, the framework can use Page Object source
-information to determine where a locator is declared and perform
-controlled source updates.
+When enabled intentionally, the framework can use Page Object source information to determine where a locator is declared and perform controlled source updates.
 
-Source repair should be enabled only after evaluating the execution
-environment and concurrency model.
+Source repair should be enabled only after evaluating the execution environment and concurrency model.
 
-------------------------------------------------------------------------
+---
 
 # 📦 Project Structure
 
-``` text
+```text
 selenium-self-healing/
 │
 ├── README.md
@@ -1215,9 +1171,9 @@ selenium-self-healing/
 │   └── configuration.md
 │
 ├── releases/
-│   └── v2.2.0/
-│       ├── vinayak-healing-plugin-2.2.0.jar
-│       └── vinayak-healing-plugin-2.2.0.jar.sha256
+│   └── v2.1.0/
+│       ├── vinayak-healing-plugin-2.1.0.jar
+│       └── vinayak-healing-plugin-2.1.0.jar.sha256
 │
 └── examples/
     └── orangehrm/
@@ -1237,27 +1193,27 @@ selenium-self-healing/
                     └── healing.properties
 ```
 
-------------------------------------------------------------------------
+---
 
 # 🔧 Configuration Reference
 
-  Property                            Purpose
-  ----------------------------------- -------------------------------------------
-  `healing.enabled`                   Enables or disables the healing framework
-  `healing.ai.enabled`                Enables AI-assisted healing
-  `healing.cache.enabled`             Enables locator cache
-  `healing.report.enabled`            Enables healing reports
-  `healing.ai.host`                   AI service host
-  `healing.ai.model`                  AI model used for fallback
-  `healing.ai.confidence.threshold`   AI confidence threshold
-  `healing.wait.timeout.seconds`      Healing wait timeout
-  `healing.source.repair.enabled`     Enables controlled source repair
+| Property | Purpose |
+|---|---|
+| `healing.enabled` | Enables or disables the healing framework |
+| `healing.ai.enabled` | Enables AI-assisted healing |
+| `healing.cache.enabled` | Enables locator cache |
+| `healing.report.enabled` | Enables healing reports |
+| `healing.ai.host` | AI service host |
+| `healing.ai.model` | AI model used for fallback |
+| `healing.ai.confidence.threshold` | AI confidence threshold |
+| `healing.wait.timeout.seconds` | Healing wait timeout |
+| `healing.source.repair.enabled` | Enables controlled source repair |
 
-------------------------------------------------------------------------
+---
 
 # 🚦 Recommended Safety Configuration
 
-``` properties
+```properties
 healing.enabled=true
 healing.ai.enabled=true
 healing.cache.enabled=true
@@ -1274,28 +1230,27 @@ healing.source.repair.enabled=false
 
 Start with source repair disabled.
 
-Enable it only when you intentionally want the framework to modify Page
-Object source files.
+Enable it only when you intentionally want the framework to modify Page Object source files.
 
-------------------------------------------------------------------------
+---
 
 # 🧪 Testing Strategy
 
 The framework is designed to distinguish between:
 
-``` text
+```text
 Correct healing
 ```
 
 and:
 
-``` text
+```text
 Wrong-element success
 ```
 
 Examples of safety scenarios include:
 
-``` text
+```text
 WRONG_LOGIN
 WRONG_ADMIN
 WRONG_RANDOM_ELEMENT
@@ -1307,17 +1262,17 @@ WRONG_PASSWORD_FIELD
 
 The important requirement is not merely:
 
-``` text
+```text
 Did the test pass?
 ```
 
 but:
 
-``` text
+```text
 Did the test interact with the correct intended element?
 ```
 
-------------------------------------------------------------------------
+---
 
 # ⚠️ Important Notes
 
@@ -1325,79 +1280,63 @@ Did the test interact with the correct intended element?
 
 A safe system must sometimes reject a candidate.
 
-If the framework cannot establish sufficient identity or safety
-evidence, the original failure should remain visible rather than
-silently interacting with an unrelated element.
+If the framework cannot establish sufficient identity or safety evidence, the original failure should remain visible rather than silently interacting with an unrelated element.
 
 ### AI does not replace deterministic validation.
 
-AI is a candidate-generation/semantic capability, not an unrestricted
-execution mechanism.
+AI is a candidate-generation/semantic capability, not an unrestricted execution mechanism.
 
 ### Cache should be treated as learned runtime state.
 
-If the application's DOM or Page Object semantics change significantly,
-clearing the cache may be appropriate.
+If the application's DOM or Page Object semantics change significantly, clearing the cache may be appropriate.
 
-------------------------------------------------------------------------
+---
 
 # 🧹 Clear Runtime Cache
 
 From the OrangeHRM example:
 
-``` bash
+```bash
 rm -rf examples/orangehrm/cache
 rm -rf examples/orangehrm/reports
 ```
 
-------------------------------------------------------------------------
+---
 
 # 🛣 Roadmap
 
-## v2.2.0
-
-Phase 1 is frozen and validated. The stale-cache recovery regression
-completed with:
-
-``` text
-Tests run: 1
-Failures: 0
-Errors: 0
-Skipped: 0
-
-BUILD SUCCESS
-```
+## v2.1.0
 
 Current release focuses on:
 
--   Universal Selenium interception
--   Action-aware healing
--   Unified healing context
--   Deterministic DOM candidate generation
--   Candidate ranking
--   Candidate filtering
--   Candidate validation
--   Semantic identity protection
--   Physical uniqueness validation
--   AI-assisted candidate selection
--   Persistent locator cache
--   Learning history
--   Healing analytics
--   Optional source repair
--   Collection/list healing capabilities
+- Universal Selenium interception
+- Action-aware healing
+- Unified healing context
+- Deterministic DOM candidate generation
+- Candidate ranking
+- Candidate filtering
+- Candidate validation
+- Semantic identity protection
+- Physical uniqueness validation
+- AI-assisted candidate selection
+- Persistent locator cache
+- Learning history
+- Healing analytics
+- Optional source repair
+- Collection/list healing capabilities
 
 ## Future
 
 Potential future capabilities include:
 
--   distributed healing intelligence
--   cross-project learning
--   advanced analytics integrations
--   broader browser automation framework support
--   visual/AI-assisted recovery
--   additional enterprise integrations
+- distributed healing intelligence
+- cross-project learning
+- advanced analytics integrations
+- broader browser automation framework support
+- visual/AI-assisted recovery
+- additional enterprise integrations
 
-------------------------------------------------------------------------
+---
 
 # 🤝 Contributing
 
@@ -1405,18 +1344,17 @@ Contributions are welcome.
 
 If you discover a healing problem, please provide:
 
-1.  The failed locator
-2.  The Selenium action
-3.  The expected element
-4.  Relevant DOM structure
-5.  Page Object context
-6.  Healing logs
-7.  A reproducible test case
+1. The failed locator
+2. The Selenium action
+3. The expected element
+4. Relevant DOM structure
+5. Page Object context
+6. Healing logs
+7. A reproducible test case
 
-Please avoid submitting credentials, API keys, or private application
-data.
+Please avoid submitting credentials, API keys, or private application data.
 
-------------------------------------------------------------------------
+---
 
 # 📄 License
 
@@ -1424,13 +1362,13 @@ This project is licensed under the MIT License.
 
 See:
 
-``` text
+```text
 LICENSE
 ```
 
 for details.
 
-------------------------------------------------------------------------
+---
 
 # 👨‍💻 Author
 
@@ -1442,17 +1380,15 @@ GitHub:
 
 https://github.com/Vinayakkkk
 
-------------------------------------------------------------------------
+---
 
 # ⭐ Support
 
-If this project is useful, consider giving the repository a ⭐ on
-GitHub.
+If this project is useful, consider giving the repository a ⭐ on GitHub.
 
-Bug reports, reproducible healing scenarios, and technical contributions
-are welcome.
+Bug reports, reproducible healing scenarios, and technical contributions are welcome.
 
-------------------------------------------------------------------------
+---
 
 # 🔥 Final Concept
 
@@ -1460,7 +1396,7 @@ The framework is not designed simply to find *an* element.
 
 It is designed to determine:
 
-``` text
+```text
 What did the test intend to interact with?
         ↓
 What changed in the application?
@@ -1476,140 +1412,4 @@ Can the validated decision be learned?
 
 The ultimate objective is:
 
-> **Recover automation from locator changes while preserving semantic
-> correctness and preventing wrong-element execution.**
-
-------------------------------------------------------------------------
-
-# 🖥️ Windows, macOS, and Linux Setup
-
-This repository is the **release/distribution repository**. It contains
-the packaged plugin JAR, documentation, and an OrangeHRM consumer
-example. It is not the plugin source-code project, so the repository
-root does not contain a `pom.xml`.
-
-## Choose how you want to use the project
-
--   **Test or use the released plugin:** download the repository ZIP or
-    clone this repository, then follow the steps below.
--   **Contribute to plugin implementation:** use the separate plugin
-    source repository. The distribution repository is intended for
-    releases, documentation, and consumer examples.
-
-## Option A --- Clone with Git (recommended)
-
-Cloning is recommended if you want to pull updates, create branches,
-commit changes, or contribute to the repository.
-
-### Windows (PowerShell)
-
-``` powershell
-cd C:\Users\Dell\Documents
-git clone https://github.com/Vinayakkkk/selenium-self-healing.git
-cd selenium-self-healing
-```
-
-### macOS / Linux (Terminal)
-
-``` bash
-cd ~/Documents
-git clone https://github.com/Vinayakkkk/selenium-self-healing.git
-cd selenium-self-healing
-```
-
-You can open the folder in VS Code with:
-
-``` bash
-code .
-```
-
-The default Git branch is named `main`. That is normal; it is the branch
-name, not a separate version of the plugin.
-
-## Option B --- Download ZIP
-
-If you choose **Code → Download ZIP** on GitHub, extract the ZIP and
-open the extracted folder in VS Code.
-
-GitHub may name the extracted directory with a `-main` suffix, such as
-`selenium-self-healing-main`. This is just the extracted folder name. It
-does not mean Maven should be run from that folder, and a ZIP download
-does not provide Git history or remote tracking.
-
-## Install the released JAR
-
-Run the following from the distribution repository root, after
-confirming that the release JAR exists at the shown relative path.
-
-### Windows (PowerShell)
-
-``` powershell
-mvn install:install-file "-Dfile=releases/v2.2.0/vinayak-healing-plugin-2.2.0.jar" "-DgroupId=com.vinayak" "-DartifactId=vinayak-healing-plugin" "-Dversion=2.1.0" "-Dpackaging=maven-plugin"
-```
-
-PowerShell does not use the Unix `\` line-continuation character. Keep
-this command on one line, or use PowerShell's backtick for line
-continuation.
-
-### macOS / Linux (Terminal)
-
-``` bash
-mvn install:install-file \
-  -Dfile=releases/v2.2.0/vinayak-healing-plugin-2.2.0.jar \
-  -DgroupId=com.vinayak \
-  -DartifactId=vinayak-healing-plugin \
-  -Dversion=2.1.0 \
-  -Dpackaging=maven-plugin
-```
-
-If you saved the JAR elsewhere, replace the `-Dfile` value with its
-actual full path. Do not use the placeholder `/path/to/...` literally.
-
-## Run the OrangeHRM consumer example
-
-The distribution repository root does not contain a Maven project file.
-The example's `pom.xml` is inside `examples/orangehrm`.
-
-### Windows (PowerShell)
-
-``` powershell
-cd examples\orangehrm
-mvn clean test
-```
-
-### macOS / Linux (Terminal)
-
-``` bash
-cd examples/orangehrm
-mvn clean test
-```
-
-Before running, ensure Java 21 and Maven are installed. If AI is enabled
-in `healing.properties`, the configured Ollama service and model must
-also be available.
-
-## Check your current directory if Maven says no POM was found
-
-Maven commands such as `mvn clean test` must run in a directory
-containing a `pom.xml`.
-
-From the distribution repository root, list the example directory:
-
-``` powershell
-Get-ChildItem examples
-```
-
-Or find the POM on Windows:
-
-``` powershell
-Get-ChildItem -Path . -Filter pom.xml -Recurse | Select-Object -ExpandProperty FullName
-```
-
-On macOS / Linux:
-
-``` bash
-find . -name pom.xml
-```
-
-Then change into the directory containing the intended `pom.xml` before
-running Maven.
+> **Recover automation from locator changes while preserving semantic correctness and preventing wrong-element execution.**
